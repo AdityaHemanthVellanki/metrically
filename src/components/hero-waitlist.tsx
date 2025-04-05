@@ -6,7 +6,7 @@ import { Input } from "@/components/ui/input"
 import { ArrowRight, CheckCircle, BarChart4, LineChart, PieChart, Sparkles } from "lucide-react"
 import { toast } from "sonner"
 import { motion, AnimatePresence } from "framer-motion"
-import { supabase } from "@/lib/supabase"
+import { getSupabaseClient } from "@/lib/supabase"
 
 export function HeroWaitlist() {
   const [email, setEmail] = useState("")
@@ -38,6 +38,14 @@ export function HeroWaitlist() {
     setIsSubmitting(true)
     
     try {
+      // Get the Supabase client
+      const supabase = getSupabaseClient()
+      
+      if (!supabase) {
+        toast.error("Unable to connect to our database. Please try again later.")
+        return
+      }
+      
       // Insert the email into Supabase
       const { error } = await supabase
         .from('waitlist')
