@@ -5,7 +5,6 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Separator } from '@/components/ui/separator';
 import { 
   BarChart3Icon, 
-  CodeIcon, 
   TargetIcon,
   CheckCircleIcon,
   CopyIcon,
@@ -16,7 +15,6 @@ import {
   PieChartIcon
 } from 'lucide-react';
 import { toast } from 'sonner';
-import { apiClient } from '@/lib/api-client';
 import { Badge } from '@/components/ui/badge';
 
 // Helper function to determine chart icon based on visualization type
@@ -35,36 +33,9 @@ interface KPIResultsDisplayProps {
 export function KPIResultsDisplay({ kpiResponse }: KPIResultsDisplayProps) {
   const [activeTab, setActiveTab] = useState('metrics');
   const [expandedMetric, setExpandedMetric] = useState<string | null>(null);
-  const [isGeneratingSql, setIsGeneratingSql] = useState<{[key: string]: boolean}>({});
   
   // Extract metrics from the raw response
   const metrics = extractMetrics(kpiResponse.raw_response);
-  
-  // Handle SQL generation for a specific metric
-  const handleGenerateSQL = async (metric: any) => {
-    setIsGeneratingSql({...isGeneratingSql, [metric.name]: true});
-    
-    try {
-      const result = await apiClient.generateSQL(
-        metric.name,
-        metric.calculation,
-        kpiResponse.tech_stack
-      );
-      
-      if ('error' in result) {
-        toast.error(result.error);
-      } else {
-        // Update the metric with the SQL query
-        metric.sql = result.sql;
-        toast.success('SQL query generated!');
-      }
-    } catch (error) {
-      console.error('Error generating SQL:', error);
-      toast.error('Failed to generate SQL query');
-    } finally {
-      setIsGeneratingSql({...isGeneratingSql, [metric.name]: false});
-    }
-  };
   
   // Handle copy to clipboard
   const handleCopy = (text: string) => {
@@ -94,141 +65,70 @@ export function KPIResultsDisplay({ kpiResponse }: KPIResultsDisplayProps) {
             </div>
             <div className="flex gap-2">
               <Badge variant="outline">{metrics.length} Metrics</Badge>
-              {kpiResponse.has_sql && <Badge>SQL Ready</Badge>}
               {kpiResponse.has_visualizations && <Badge>Visualizations</Badge>}
             </div>
           </div>
         </CardHeader>
         
         <CardContent>
-          <Tabs defaultValue="metrics" value={activeTab} onValueChange={setActiveTab}>
-            <TabsList className="grid w-full grid-cols-3 mb-8">
-              <TabsTrigger value="metrics">
-                <CheckCircleIcon className="h-4 w-4 mr-2" />
-                Metrics
-              </TabsTrigger>
-              <TabsTrigger value="sql">
-                <CodeIcon className="h-4 w-4 mr-2" />
-                SQL Queries
-              </TabsTrigger>
-              <TabsTrigger value="visualizations">
-                <BarChart3Icon className="h-4 w-4 mr-2" />
-                Visualizations
-              </TabsTrigger>
-            </TabsList>
-            
-            <TabsContent value="metrics" className="space-y-4">
-              {metrics.map((metric, index) => (
-                <Card key={index} className={`overflow-hidden transition-all duration-300 ${expandedMetric === metric.name ? 'shadow-md' : ''}`}>
-                  <CardHeader className="p-4 cursor-pointer" onClick={() => toggleExpand(metric.name)}>
-                    <div className="flex justify-between items-center">
-                      <CardTitle className="text-lg">
-                        {metric.name}
-                      </CardTitle>
-                      <Button variant="ghost" size="sm">
-                        {expandedMetric === metric.name ? <ChevronUpIcon /> : <ChevronDownIcon />}
-                      </Button>
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+            {metrics.map((metric, index) => (
+              <Card 
+                key={index} 
+                className={`overflow-hidden cursor-pointer transition-all duration-200 ${expandedMetric === metric.name ? 'shadow-lg border-primary' : 'hover:shadow-md'}`}
+                onClick={() => toggleExpand(metric.name)}
+              >
+                {/* KPI header with number */}
+                <div className="p-4 bg-slate-50 border-b flex items-center justify-between">
+                  <div className="flex items-center gap-3">
+                    <div className="bg-primary/10 flex items-center justify-center h-7 w-7 rounded-full text-primary font-semibold text-sm">
+                      {index + 1}
                     </div>
-                  </CardHeader>
-                  
-                  {expandedMetric === metric.name && (
-                    <CardContent className="p-4 pt-0">
-                      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                        <div className="space-y-2">
-                          <h4 className="text-sm font-medium">Description</h4>
-                          <p className="text-sm text-muted-foreground">{metric.description}</p>
-                        </div>
-                        <div className="space-y-2">
-                          <h4 className="text-sm font-medium">Calculation</h4>
-                          <p className="text-sm text-muted-foreground">{metric.calculation}</p>
-                        </div>
-                        <div className="space-y-2">
-                          <h4 className="text-sm font-medium">Why it matters</h4>
-                          <p className="text-sm text-muted-foreground">{metric.importance}</p>
+                    <h3 className="font-medium text-base">{metric.name}</h3>
+                  </div>
+                  {expandedMetric === metric.name ? 
+                    <ChevronUpIcon className="h-5 w-5 text-primary" /> : 
+                    <ChevronDownIcon className="h-5 w-5 text-muted-foreground" />}
+                </div>
+
+                {expandedMetric === metric.name ? (
+                  /* Expanded view with all details in one block */
+                  <div className="p-4">
+                    <p className="text-sm leading-relaxed mb-4">{metric.description}</p>
+                    
+                    <div className="space-y-4">
+                      <div>
+                        <h4 className="font-medium text-sm mb-1 text-primary/80">Calculation</h4>
+                        <div className="bg-slate-50 p-3 rounded-md border">
+                          <code className="text-sm whitespace-pre-wrap font-mono">{metric.calculation}</code>
                         </div>
                       </div>
                       
+                      <div>
+                        <h4 className="font-medium text-sm mb-1 text-primary/80">Why it matters</h4>
+                        <p className="text-sm">{metric.importance}</p>
+                      </div>
+                      
                       {metric.benchmark && (
-                        <div className="mt-4 p-2 bg-muted rounded-md flex items-center gap-2">
-                          <TargetIcon className="h-4 w-4 text-primary" />
-                          <span className="text-sm">Benchmark: {metric.benchmark}</span>
+                        <div>
+                          <h4 className="font-medium text-sm mb-1 flex items-center gap-1 text-primary/80">
+                            <TargetIcon className="h-4 w-4" />
+                            <span>Industry Benchmark</span>
+                          </h4>
+                          <p className="text-sm bg-slate-50 p-3 rounded-md border">{metric.benchmark}</p>
                         </div>
                       )}
-                    </CardContent>
-                  )}
-                </Card>
-              ))}
-            </TabsContent>
-            
-            <TabsContent value="sql" className="space-y-4">
-              {metrics.map((metric, index) => (
-                <Card key={index}>
-                  <CardHeader className="p-4">
-                    <CardTitle className="text-lg">{metric.name} SQL Query</CardTitle>
-                  </CardHeader>
-                  
-                  <CardContent className="p-4 pt-0">
-                    {metric.sql ? (
-                      <div className="relative">
-                        <pre className="bg-muted p-4 rounded-md overflow-x-auto">
-                          <code>{metric.sql}</code>
-                        </pre>
-                        <Button
-                          size="sm"
-                          variant="ghost"
-                          className="absolute top-2 right-2"
-                          onClick={() => handleCopy(metric.sql)}
-                        >
-                          <CopyIcon className="h-4 w-4" />
-                        </Button>
-                      </div>
-                    ) : (
-                      <div className="text-center p-4">
-                        <p className="text-sm text-muted-foreground mb-4">
-                          Generate SQL query for {kpiResponse.tech_stack} database
-                        </p>
-                        <Button 
-                          onClick={() => handleGenerateSQL(metric)}
-                          disabled={isGeneratingSql[metric.name]}
-                        >
-                          {isGeneratingSql[metric.name] ? 'Generating...' : 'Generate SQL'}
-                        </Button>
-                      </div>
-                    )}
-                  </CardContent>
-                </Card>
-              ))}
-            </TabsContent>
-            
-            <TabsContent value="visualizations" className="space-y-4">
-              {metrics.map((metric, index) => (
-                <Card key={index}>
-                  <CardHeader className="p-4">
-                    <div className="flex items-center gap-2">
-                      {getChartIcon(metric.visualization)}
-                      <CardTitle className="text-lg">
-                        {metric.name}
-                      </CardTitle>
                     </div>
-                    <CardDescription>
-                      Recommended visualization: {metric.visualization || 'Line Chart'}
-                    </CardDescription>
-                  </CardHeader>
-                  
-                  <CardContent className="p-4 pt-0">
-                    <div className="h-[200px] rounded-md border flex items-center justify-center bg-muted">
-                      <p className="text-muted-foreground text-center p-4">
-                        {getChartIcon(metric.visualization || 'Line Chart')}
-                        <span className="block mt-2">
-                          Visualization preview will be displayed here when data is available
-                        </span>
-                      </p>
-                    </div>
-                  </CardContent>
-                </Card>
-              ))}
-            </TabsContent>
-          </Tabs>
+                  </div>
+                ) : (
+                  /* Collapsed view with just a short hint to click */
+                  <div className="p-4 flex items-center justify-center">
+                    <p className="text-sm text-muted-foreground">Click to view details</p>
+                  </div>
+                )}
+              </Card>
+            ))}
+          </div>
         </CardContent>
       </Card>
       
@@ -255,7 +155,7 @@ const extractMetrics = (rawResponse: string) => {
   const metrics: any[] = [];
   
   // Very simple parsing - this is just illustrative and should be more robust
-  const sections = rawResponse.split(/\d+\.\s+METRICS|METRICS:/i)[1]?.split(/\d+\.\s+SQL QUERIES|SQL QUERIES:/i)[0];
+  const sections = rawResponse.split(/\d+\.\s+METRICS|METRICS:/i)[1] || rawResponse;
   
   if (sections) {
     // Find all metrics with their descriptions
@@ -276,8 +176,7 @@ const extractMetrics = (rawResponse: string) => {
         description,
         calculation: "Extracted from AI response",
         importance: "Extracted from AI response",
-        visualization: "Line Chart", // Default
-        sql: "" // Will be generated on demand
+        visualization: "Line Chart" // Default
       });
     });
   }

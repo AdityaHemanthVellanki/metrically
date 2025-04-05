@@ -184,52 +184,74 @@ export const apiClient = {
   
   // KPI Generation
   async generateKPI(request: KPIGenerationRequest): Promise<KPIGenerationResponse | { error: string }> {
-    const token = getToken();
-    if (!token) {
-      return { error: 'Authentication required' };
-    }
-    
-    // Use mock data if API is unavailable
-    if (USE_MOCK_DATA) {
-      console.log('Using mock KPI generation data');
-      return {
-        raw_response: 'Mock raw response',
-        tech_stack: 'Mock tech stack',
-        metrics_count: 10,
-        has_sql: true,
-        has_visualizations: true,
-        has_benchmarks: true,
-      };
-    }
-    
     try {
-      const response = await fetch(`${API_BASE_URL}/kpi/generate`, {
-        method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${token}`,
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify(request),
-      });
-      
-      if (!response.ok) {
-        const error = await response.json();
-        return handleApiError(error);
-      }
-      
-      return await response.json();
-    } catch (error) {
+      // Check if we should use mock data
       if (USE_MOCK_DATA) {
-        console.log('API unavailable, falling back to mock data');
+        console.log('Using mock KPI generation data');
         return {
           raw_response: 'Mock raw response',
-          tech_stack: 'Mock tech stack',
+          tech_stack: request.tech_stack || 'Mock tech stack',
           metrics_count: 10,
-          has_sql: true,
+          has_sql: false,
           has_visualizations: true,
           has_benchmarks: true,
         };
       }
+
+      // Use Azure OpenAI directly
+      const prompt = `Generate a comprehensive KPI tracking system for a ${request.company_stage} stage company in the ${request.industry || 'technology'} industry with ${request.tech_stack} tech stack. The company's product is ${request.product_type}. ${request.business_model ? `The business model is ${request.business_model}.` : ''} ${request.target_audience ? `The target audience is ${request.target_audience}.` : ''} ${request.startup_description ? `Additional context: ${request.startup_description}` : ''}
+
+Format your response in the following structure:
+
+1. METRICS
+Provide 5-8 key metrics, each including:
+**Metric Name**
+Description: What this metric measures
+Calculation: How to calculate this value
+Importance: Why this metric matters
+Benchmark: Industry standards if available
+Visualization: Best way to visualize (line chart, bar chart, etc.)
+`;
+
+      // Prepare the request to Azure OpenAI
+      const azureOpenAIEndpoint = `${API_CONFIG.AZURE_OPENAI_ENDPOINT}openai/deployments/${API_CONFIG.AZURE_OPENAI_DEPLOYMENT_NAME}/chat/completions?api-version=${API_CONFIG.AZURE_OPENAI_API_VERSION}`;
+
+      const response = await fetch(azureOpenAIEndpoint, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'api-key': API_CONFIG.AZURE_OPENAI_API_KEY
+        },
+        body: JSON.stringify({
+          messages: [
+            { role: 'system', content: 'You are an expert AI assistant specializing in business analytics and KPI tracking systems.' },
+            { role: 'user', content: prompt }
+          ],
+          temperature: 0.7,
+          max_tokens: 2000
+        })
+      });
+
+      if (!response.ok) {
+        const errorData = await response.text();
+        console.error('Azure OpenAI API error:', errorData);
+        return handleApiError(new Error(`Azure OpenAI API error: ${response.status}`));
+      }
+
+      const data = await response.json();
+      const aiResponse = data.choices[0].message.content;
+
+      // Process the response
+      return {
+        raw_response: aiResponse,
+        tech_stack: request.tech_stack,
+        metrics_count: (aiResponse.match(/\*\*([^*]+)\*\*/g) || []).length,
+        has_sql: false, // We removed SQL feature
+        has_visualizations: aiResponse.toLowerCase().includes('visualization'),
+        has_benchmarks: aiResponse.toLowerCase().includes('benchmark')
+      };
+    } catch (error) {
+      console.error('Error generating KPIs:', error);
       return handleApiError(error);
     }
   },
