@@ -8,15 +8,13 @@ import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { ChartBar, SparklesIcon } from 'lucide-react';
-import { apiClient } from '@/lib/api-client';
-import { toast } from 'sonner';
 
 export default function DashboardPage() {
-  const [kpiResponse, setKpiResponse] = useState<any | null>(null);
+  const [kpiResponse, setKpiResponse] = useState<Record<string, unknown> | null>(null);
   const [activeTab, setActiveTab] = useState('kpi-generator');
   
   // Handler for when KPI system is generated
-  const handleKPIGenerated = (response: any) => {
+  const handleKPIGenerated = (response: Record<string, unknown>) => {
     setKpiResponse(response);
     window.scrollTo({ top: 0, behavior: 'smooth' });
   };
