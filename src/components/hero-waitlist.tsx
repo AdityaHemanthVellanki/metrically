@@ -6,6 +6,7 @@ import { Input } from "@/components/ui/input"
 import { ArrowRight, CheckCircle, BarChart4, LineChart, PieChart, Sparkles } from "lucide-react"
 import { toast } from "sonner"
 import { motion, AnimatePresence } from "framer-motion"
+import { supabase } from "@/lib/supabase"
 
 export function HeroWaitlist() {
   const [email, setEmail] = useState("")
@@ -36,12 +37,30 @@ export function HeroWaitlist() {
 
     setIsSubmitting(true)
     
-    // Simulate API call
-    setTimeout(() => {
-      toast.success("You've joined the waitlist! We'll notify you when Metrically launches.")
+    try {
+      // Insert the email into Supabase
+      const { error } = await supabase
+        .from('waitlist')
+        .insert([{ email }])
+      
+      if (error) {
+        if (error.code === '23505') {
+          // Unique constraint violation - email already exists
+          toast.success("You're already on our waitlist! We'll be in touch soon.")
+        } else {
+          console.error('Error submitting to waitlist:', error)
+          toast.error("Something went wrong. Please try again.")
+        }
+      } else {
+        toast.success("You've joined the waitlist! We'll notify you when Metrically launches.")
+      }
+    } catch (err) {
+      console.error('Error:', err)
+      toast.error("Something went wrong. Please try again.")
+    } finally {
       setEmail("")
       setIsSubmitting(false)
-    }, 1000)
+    }
   }
 
   // Generate random floating particles
