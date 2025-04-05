@@ -11,6 +11,7 @@ import {
   Layers
 } from "lucide-react"
 import { motion } from "framer-motion"
+import { FeaturesSimulations } from "./features-simulations"
 
 export function FeaturesWaitlist() {
   const features = [
@@ -88,6 +89,17 @@ export function FeaturesWaitlist() {
           <p className="text-xl text-slate-700 dark:text-slate-300 max-w-3xl mx-auto leading-relaxed">
             Metrically is being built to transform how startups track, analyze, and act on their most important metrics.
           </p>
+        </motion.div>
+        
+        {/* Interactive Simulations */}
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          whileInView={{ opacity: 1, y: 0 }}
+          viewport={{ once: true }}
+          transition={{ duration: 0.8 }}
+          className="mb-20"
+        >
+          <FeaturesSimulations />
         </motion.div>
         
         <motion.div 
