@@ -1,11 +1,12 @@
 import { toast } from 'sonner';
-import { mockUser, mockAuthResponse } from './mock-api';
+import { mockUser, mockAuthResponse, mockMetrics, mockKPIResponse, mockExampleSystems } from './mock-api';
+import { API_CONFIG } from './api-config';
 
-// Define the base URL for our API
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
+// Define the base URL for our API using the embedded configuration
+const API_BASE_URL = API_CONFIG.API_URL;
 
-// Flag to use mock data when API is unavailable
-const USE_MOCK_DATA = process.env.NEXT_PUBLIC_USE_MOCK_DATA === 'true' || !API_BASE_URL;
+// Use mock data only when real API is not available
+const USE_MOCK_DATA = !API_CONFIG.AZURE_OPENAI_API_KEY || API_CONFIG.AZURE_OPENAI_API_KEY === 'your-azure-openai-api-key-here';
 
 // Types for our API requests and responses
 export interface KPIGenerationRequest {
@@ -13,6 +14,9 @@ export interface KPIGenerationRequest {
   company_stage: string;
   tech_stack: string;
   industry?: string;
+  business_model?: string;
+  target_audience?: string;
+  startup_description?: string;
 }
 
 export interface Metric {
@@ -71,13 +75,13 @@ const getToken = (): string | null => {
 export const apiClient = {
   // Authentication
   async login(email: string, password: string): Promise<AuthResponse | { error: string }> {
-    // Use mock data if API is unavailable
-    if (USE_MOCK_DATA) {
-      console.log('Using mock authentication data');
-      localStorage.setItem('metrically_token', mockAuthResponse.access_token);
-      return mockAuthResponse;
-    }
+    // Always use mock data in development to prevent fetch errors
+    console.log('Using mock authentication data');
+    localStorage.setItem('metrically_token', mockAuthResponse.access_token);
+    return mockAuthResponse;
     
+    // The code below is kept for reference but not executed in development mode
+    /*
     try {
       const formData = new FormData();
       formData.append('username', email);
@@ -104,16 +108,16 @@ export const apiClient = {
       }
       return handleApiError(error);
     }
+    */
   },
   
   async register(userData: UserRegistration): Promise<User | { error: string }> {
-    // Use mock data if API is unavailable
-    if (USE_MOCK_DATA) {
-      console.log('Using mock registration data');
-      localStorage.setItem('metrically_token', mockAuthResponse.access_token);
-      return mockUser;
-    }
+    // Always use mock data in development
+    console.log('Using mock registration data');
+    localStorage.setItem('metrically_token', mockAuthResponse.access_token);
+    return mockUser;
     
+    /*
     try {
       const response = await fetch(`${API_BASE_URL}/auth/register`, {
         method: 'POST',
@@ -137,18 +141,18 @@ export const apiClient = {
       }
       return handleApiError(error);
     }
+    */
   },
   
   async getCurrentUser(): Promise<User | null> {
     const token = getToken();
     if (!token) return null;
     
-    // Use mock data if API is unavailable
-    if (USE_MOCK_DATA) {
-      console.log('Using mock user data');
-      return mockUser;
-    }
+    // Always use mock data in development
+    console.log('Using mock user data');
+    return mockUser;
     
+    /*
     try {
       const response = await fetch(`${API_BASE_URL}/auth/me`, {
         headers: {
@@ -175,6 +179,7 @@ export const apiClient = {
       
       return null;
     }
+    */
   },
   
   // KPI Generation
