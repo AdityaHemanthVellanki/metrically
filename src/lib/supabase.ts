@@ -1,41 +1,38 @@
 import { createClient, SupabaseClient } from '@supabase/supabase-js'
 
-// Handle client creation for different environments
-let supabase: SupabaseClient | null = null
+// Create a singleton Supabase client
+let supabaseInstance: SupabaseClient | null = null
 
-// Initialize Supabase client with proper error handling
-const initSupabase = () => {
+/**
+ * Creates and returns a Supabase client instance
+ * This function ensures we only create one instance of the client
+ */
+export function getSupabaseClient(): SupabaseClient | null {
+  // If we already have an instance, return it
+  if (supabaseInstance) return supabaseInstance
+  
+  // Only create client in browser environment
+  if (typeof window === 'undefined') return null
+  
   try {
-    // Use environment variables from .env.local in project root
+    // Get environment variables
     const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL
     const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
     
+    // Validate environment variables
     if (!supabaseUrl || !supabaseAnonKey) {
-      console.warn('Supabase URL or anon key is missing. Make sure .env.local is set up correctly.')
+      console.error('Supabase URL or anon key is missing. Check your .env.local file.')
       return null
     }
     
-    // Create a single supabase client for interacting with your database
-    return createClient(supabaseUrl, supabaseAnonKey)
+    // Create the client
+    supabaseInstance = createClient(supabaseUrl, supabaseAnonKey)
+    return supabaseInstance
   } catch (error) {
-    console.error('Error initializing Supabase client:', error)
+    console.error('Failed to initialize Supabase client:', error)
     return null
   }
 }
 
-// Initialize client in browser environments only
-if (typeof window !== 'undefined') {
-  supabase = initSupabase()
-}
-
-// Export a function to get the client, which ensures it's only used when available
-export function getSupabaseClient() {
-  // If we're in a browser and the client doesn't exist yet, initialize it
-  if (!supabase && typeof window !== 'undefined') {
-    supabase = initSupabase()
-  }
-  return supabase
-}
-
 // For backward compatibility
-export { supabase }
+export const supabase = null
