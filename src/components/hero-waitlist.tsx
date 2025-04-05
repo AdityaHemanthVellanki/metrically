@@ -38,15 +38,44 @@ export function HeroWaitlist() {
     setIsSubmitting(true)
     
     try {
+      console.log('Starting form submission...')
       // Get the Supabase client
       const supabase = getSupabaseClient()
       
       if (!supabase) {
+        console.error('Supabase client not available')
         toast.error("Unable to connect to our database. Please try again later.")
         return
       }
       
+      console.log('Supabase client obtained successfully')
+      
+      // First, check if the waitlist table exists by querying it
+      try {
+        const { error: tableCheckError } = await supabase
+          .from('waitlist')
+          .select('count')
+          .limit(1)
+          
+        if (tableCheckError) {
+          console.error('Table check error:', tableCheckError)
+          // If the table doesn't exist, try to create it
+          if (tableCheckError.code === '42P01') { // Table doesn't exist error code
+            console.log('Table does not exist, creating it...')
+            // Create table logic would go here - but this requires admin privileges
+            // Instead, show a specific error
+            toast.error("The waitlist database hasn't been set up yet. Please contact support.")
+            return
+          }
+        }
+        
+        console.log('Table exists, proceeding with insert')
+      } catch (tableErr) {
+        console.error('Error checking table:', tableErr)
+      }
+      
       // Insert the email into Supabase
+      console.log('Attempting to insert email:', email)
       const { error } = await supabase
         .from('waitlist')
         .insert([{ email }])
@@ -54,16 +83,18 @@ export function HeroWaitlist() {
       if (error) {
         if (error.code === '23505') {
           // Unique constraint violation - email already exists
+          console.log('Email already exists in waitlist')
           toast.success("You're already on our waitlist! We'll be in touch soon.")
         } else {
           console.error('Error submitting to waitlist:', error)
-          toast.error("Something went wrong. Please try again.")
+          toast.error(`Database error: ${error.message || 'Unknown error'}`)
         }
       } else {
+        console.log('Email successfully added to waitlist')
         toast.success("You've joined the waitlist! We'll notify you when Metrically launches.")
       }
     } catch (err) {
-      console.error('Error:', err)
+      console.error('Submission error:', err)
       toast.error("Something went wrong. Please try again.")
     } finally {
       setEmail("")

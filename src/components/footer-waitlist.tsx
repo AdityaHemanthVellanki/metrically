@@ -28,15 +28,44 @@ export function FooterWaitlist() {
     setIsSubmitting(true)
     
     try {
+      console.log('Starting form submission in footer...')
       // Get the Supabase client
       const supabase = getSupabaseClient()
       
       if (!supabase) {
+        console.error('Supabase client not available in footer')
         toast.error("Unable to connect to our database. Please try again later.")
         return
       }
       
+      console.log('Supabase client obtained successfully in footer')
+      
+      // First, check if the waitlist table exists by querying it
+      try {
+        const { error: tableCheckError } = await supabase
+          .from('waitlist')
+          .select('count')
+          .limit(1)
+          
+        if (tableCheckError) {
+          console.error('Table check error in footer:', tableCheckError)
+          // If the table doesn't exist, try to create it
+          if (tableCheckError.code === '42P01') { // Table doesn't exist error code
+            console.log('Table does not exist, creating it...')
+            // Create table logic would go here - but this requires admin privileges
+            // Instead, show a specific error
+            toast.error("The waitlist database hasn't been set up yet. Please contact support.")
+            return
+          }
+        }
+        
+        console.log('Table exists in footer, proceeding with insert')
+      } catch (tableErr) {
+        console.error('Error checking table in footer:', tableErr)
+      }
+      
       // Insert the email into Supabase
+      console.log('Attempting to insert email in footer:', email)
       const { error } = await supabase
         .from('waitlist')
         .insert([{ email }])
@@ -44,16 +73,18 @@ export function FooterWaitlist() {
       if (error) {
         if (error.code === '23505') {
           // Unique constraint violation - email already exists
+          console.log('Email already exists in waitlist (footer)')
           toast.success("You're already on our waitlist! We'll be in touch soon.")
         } else {
-          console.error('Error submitting to waitlist:', error)
-          toast.error("Something went wrong. Please try again.")
+          console.error('Error submitting to waitlist from footer:', error)
+          toast.error(`Database error: ${error.message || 'Unknown error'}`)
         }
       } else {
+        console.log('Email successfully added to waitlist from footer')
         toast.success("You've joined the waitlist! We'll notify you when Metrically launches.")
       }
     } catch (err) {
-      console.error('Error:', err)
+      console.error('Submission error in footer:', err)
       toast.error("Something went wrong. Please try again.")
     } finally {
       setEmail("")
