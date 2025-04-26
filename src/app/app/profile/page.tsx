@@ -1,0 +1,787 @@
+"use client";
+
+import { useState, useEffect } from "react";
+import { useRouter } from "next/navigation";
+import Link from "next/link";
+import { useForm, Controller } from "react-hook-form";
+import { zodResolver } from "@hookform/resolvers/zod";
+import * as z from "zod";
+import { toast } from "react-toastify";
+import { ToastContainer } from "react-toastify";
+import "react-toastify/dist/ReactToastify.css";
+
+import { AppNavbar } from "@/components/app-navbar";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Select } from "@/components/ui/select";
+import { Textarea } from "@/components/ui/textarea";
+import { useAuth } from "@/components/AuthProvider";
+import { supabase } from "@/lib/supabase";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardFooter,
+  CardHeader,
+  CardTitle
+} from "@/components/ui/card";
+import {
+  Building2,
+  Globe,
+  TrendingUp,
+  BrainCircuit,
+  HomeIcon,
+  ChevronRight,
+  Save,
+  AlertTriangle,
+  Info
+} from "lucide-react";
+
+// Schema for form validation
+const startupProfileSchema = z.object({
+  company_name: z.string().min(1, "Company name is required"),
+  industry_sector: z.string().min(1, "Industry sector is required"),
+  business_model: z.string().min(1, "Business model is required"),
+  customer_segment: z.array(z.string()).min(1, "Select at least one customer segment"),
+  geographic_focus: z.string().min(1, "Geographic focus is required"),
+  currency_type: z.string().min(1, "Currency type is required"),
+  stage: z.string().min(1, "Company stage is required"),
+  strategic_focus: z.array(z.string()).min(1, "Select at least one strategic focus"),
+  custom_prompt: z.string().min(10, "Please provide some detailed context about your company")
+});
+
+type StartupProfileFormData = z.infer<typeof startupProfileSchema>;
+
+// Define form options for dropdowns
+const INDUSTRY_SECTORS = [
+  "SaaS",
+  "E-commerce",
+  "Healthcare",
+  "Fintech",
+  "Manufacturing",
+  "Web3",
+  "Education",
+  "Travel",
+  "Food & Beverage",
+  "Media & Entertainment",
+  "Real Estate",
+  "Energy",
+  "Transportation",
+  "Gaming",
+  "AI & ML",
+  "Hardware",
+  "Cybersecurity",
+  "Other"
+];
+
+const BUSINESS_MODELS = [
+  "Subscription",
+  "Transactional",
+  "Marketplace",
+  "Freemium",
+  "API-first",
+  "Advertising",
+  "Licensing",
+  "Open Source",
+  "Consulting",
+  "Hardware",
+  "Other"
+];
+
+const CUSTOMER_SEGMENTS = [
+  "B2B",
+  "B2C",
+  "D2C",
+  "Government",
+  "Internal"
+];
+
+const CURRENCIES = [
+  "USD",
+  "EUR",
+  "GBP",
+  "INR",
+  "JPY",
+  "AUD",
+  "CAD",
+  "CNY",
+  "AED",
+  "SGD",
+  "BTC",
+  "ETH",
+  "Other"
+];
+
+const COMPANY_STAGES = [
+  "Idea Stage",
+  "Pre-Revenue",
+  "Seed",
+  "Series A",
+  "Series B",
+  "Growth",
+  "Mature"
+];
+
+const STRATEGIC_FOCUS_OPTIONS = [
+  "Growth",
+  "Retention",
+  "Efficiency",
+  "Market Expansion",
+  "Profitability",
+  "Fundraising",
+  "Product Innovation",
+  "Team Building"
+];
+
+function StartupProfilePageInner() {
+  const { user, loading: authLoading } = useAuth();
+  const router = useRouter();
+  const [profileId, setProfileId] = useState<string | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
+  const [isAutosaving, setIsAutosaving] = useState(false);
+  const [hasExistingProfile, setHasExistingProfile] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [lastSaved, setLastSaved] = useState<Date | null>(null);
+
+  const {
+    control,
+    handleSubmit,
+    reset,
+    watch,
+    formState: { errors, isDirty, dirtyFields }
+  } = useForm<StartupProfileFormData>({
+    resolver: zodResolver(startupProfileSchema),
+    defaultValues: {
+      company_name: "",
+      industry_sector: "",
+      business_model: "",
+      customer_segment: [],
+      geographic_focus: "",
+      currency_type: "",
+      stage: "",
+      strategic_focus: [],
+      custom_prompt: ""
+    }
+  });
+
+  const formValues = watch();
+
+  useEffect(() => {
+    if (authLoading || !user || !supabase) return;
+    const fetchProfileData = async () => {
+      setLoading(true);
+      setError(null);
+      try {
+        const { data, error } = await supabase!
+          .from('startup_profiles')
+          .select('*')
+          .eq('user_id', user.id)
+          .single();
+        if (error) {
+          console.error('Error fetching profile:', error);
+          if (error.code !== 'PGRST116') {
+            setError('Failed to load profile data. Please try again.');
+          }
+        } else if (data) {
+          setHasExistingProfile(true);
+          setProfileId(data.startup_id);
+          const formData = {
+            ...data,
+            customer_segment: Array.isArray(data.customer_segment)
+              ? data.customer_segment
+              : [data.customer_segment],
+            strategic_focus: Array.isArray(data.strategic_focus)
+              ? data.strategic_focus
+              : [data.strategic_focus],
+          };
+          reset(formData);
+          setLastSaved(new Date(data.updated_at));
+        }
+      } catch (err) {
+        console.error('Error:', err);
+        setError('An unexpected error occurred. Please try again.');
+      } finally {
+        setLoading(false);
+      }
+    };
+    fetchProfileData();
+  }, [authLoading, user, supabase, reset]);
+
+  useEffect(() => {
+    if (!isDirty || !user || !hasExistingProfile || !profileId) return;
+    let autosaveTimer: NodeJS.Timeout;
+    if (isDirty) {
+      autosaveTimer = setTimeout(() => {
+        handleAutosave();
+      }, 30000); // 30 seconds
+    }
+    return () => {
+      if (autosaveTimer) clearTimeout(autosaveTimer);
+    };
+  }, [formValues, isDirty, user, hasExistingProfile, profileId]);
+
+  const handleAutosave = async () => {
+    if (!isDirty || !user || !profileId) return;
+    setIsAutosaving(true);
+    try {
+      const fieldsToUpdate = Object.keys(dirtyFields).reduce((acc, key) => {
+        acc[key] = formValues[key as keyof StartupProfileFormData];
+        return acc;
+      }, {} as Record<string, any>);
+      if (Object.keys(fieldsToUpdate).length === 0) {
+        setIsAutosaving(false);
+        return;
+      }
+      if (!supabase) throw new Error('Supabase client not initialized');
+      const { error } = await supabase
+        .from('startup_profiles')
+        .update({
+          ...fieldsToUpdate,
+          updated_at: new Date().toISOString()
+        })
+        .eq('startup_id', profileId);
+      if (error) {
+        console.error('Autosave error:', error);
+      } else {
+        setLastSaved(new Date());
+      }
+    } catch (err) {
+      console.error('Autosave error:', err);
+    } finally {
+      setIsAutosaving(false);
+    }
+  };
+
+  const onSubmit = async (data: StartupProfileFormData) => {
+    if (!user) return;
+    setSaving(true);
+    try {
+      if (hasExistingProfile && profileId) {
+        if (!supabase) throw new Error('Supabase client not initialized');
+        const { error } = await supabase
+          .from('startup_profiles')
+          .update({
+            ...data,
+            updated_at: new Date().toISOString()
+          })
+          .eq('startup_id', profileId);
+        
+        if (error) throw error;
+        
+        toast.success('Startup Profile saved successfully');
+        setLastSaved(new Date());
+      } else {
+        // Create new profile
+        if (!supabase) throw new Error('Supabase client not initialized');
+        const { data: newProfile, error } = await supabase
+          .from('startup_profiles')
+          .insert([
+            {
+              user_id: user.id,
+              ...data,
+              created_at: new Date().toISOString(),
+              updated_at: new Date().toISOString()
+            }
+          ])
+          .select();
+        
+        if (error) throw error;
+        
+        if (newProfile && newProfile.length > 0) {
+          setProfileId(newProfile[0].startup_id);
+          setHasExistingProfile(true);
+          toast.success('Startup Profile created successfully');
+          setLastSaved(new Date());
+        }
+      }
+    } catch (err: any) {
+      console.error('Save error:', err);
+      toast.error(`Error saving: ${err.message || 'Please check your connection or try again'}`);
+    } finally {
+      setSaving(false);
+    }
+  };
+  
+  // Retry loading profile
+  const handleRetry = () => {
+    if (!user) return;
+    setLoading(true);
+    setError(null);
+    
+    // Re-fetch profile
+    const fetchProfileData = async () => {
+      try {
+        if (!supabase) {
+          setError('Supabase client not initialized. Please refresh the page.');
+          setLoading(false);
+          return;
+        }
+        const { data, error } = await supabase!
+          .from('startup_profiles')
+          .select('*')
+          .eq('user_id', user.id)
+          .single();
+        
+        if (error && error.code !== 'PGRST116') {
+          setError('Failed to load profile data. Please try again.');
+        } else if (data) {
+          setHasExistingProfile(true);
+          setProfileId(data.startup_id);
+          reset(data);
+          setLastSaved(new Date(data.updated_at));
+        }
+      } catch (err) {
+        setError('An unexpected error occurred. Please try again.');
+      } finally {
+        setLoading(false);
+      }
+    };
+    
+    fetchProfileData();
+  };
+  
+  if (authLoading) {
+    return (
+      <div className="min-h-screen flex flex-col">
+        <AppNavbar />
+        <div className="flex-1 flex justify-center items-center">
+          <div className="h-8 w-8 border-4 border-primary border-t-transparent rounded-full animate-spin"></div>
+        </div>
+      </div>
+    );
+  }
+  
+  if (!user) {
+    router.push("/auth/login");
+    return null;
+  }
+  
+  // Custom multi-select component for customer segments and strategic focus
+  const MultiSelect = ({ 
+    options, 
+    value, 
+    onChange,
+    error
+  }: { 
+    options: string[]; 
+    value: string[]; 
+    onChange: (values: string[]) => void; 
+    error?: string;
+  }) => {
+    const toggleOption = (option: string) => {
+      if (value.includes(option)) {
+        onChange(value.filter(item => item !== option));
+      } else {
+        onChange([...value, option]);
+      }
+    };
+    
+    return (
+      <div>
+        <div className="flex flex-wrap gap-2 mt-1">
+          {options.map(option => (
+            <button
+              key={option}
+              type="button"
+              onClick={() => toggleOption(option)}
+              className={`text-sm px-3 py-1 rounded-full transition-all ${
+                value.includes(option)
+                  ? "bg-primary/20 text-primary border border-primary/30"
+                  : "bg-muted/30 text-muted-foreground border border-muted hover:bg-muted/40"
+              }`}
+            >
+              {option}
+            </button>
+          ))}
+        </div>
+        {error && <p className="text-red-500 text-xs mt-1">{error}</p>}
+      </div>
+    );
+  };
+  
+  return (
+    <div className="min-h-screen flex flex-col bg-[#121212]">
+      <AppNavbar />
+      <ToastContainer
+        position="top-right"
+        autoClose={3000}
+        hideProgressBar={false}
+        newestOnTop
+        closeOnClick
+        rtl={false}
+        pauseOnFocusLoss
+        draggable
+        pauseOnHover
+        theme="dark"
+      />
+      
+      <main className="flex-1 container mx-auto px-4 pt-24 pb-24">
+        {/* Breadcrumb */}
+        <div className="flex items-center text-sm mb-6 text-muted-foreground">
+          <Link href="/app" className="flex items-center hover:text-primary transition-colors">
+            <HomeIcon className="h-4 w-4 mr-1" /> Home
+          </Link>
+          <ChevronRight className="h-4 w-4 mx-1" />
+          <span className="text-foreground">Startup Profile</span>
+        </div>
+        
+        {/* Page Title */}
+        <div className="mb-8">
+          <h1 className="text-2xl md:text-3xl font-bold mb-2">Startup Profile</h1>
+          <p className="text-muted-foreground">
+            Tell us about your business to help Metrically generate personalized dashboards and KPIs.
+          </p>
+        </div>
+        
+        {loading ? (
+          <div className="flex items-center justify-center py-20">
+            <div className="flex flex-col items-center">
+              <div className="h-8 w-8 border-4 border-primary border-t-transparent rounded-full animate-spin mb-4"></div>
+              <p className="text-muted-foreground">Loading profile data...</p>
+            </div>
+          </div>
+        ) : error ? (
+          <div className="flex flex-col items-center justify-center py-20">
+            <AlertTriangle className="h-12 w-12 text-amber-500 mb-4" />
+            <h3 className="text-xl font-semibold mb-2">Error Loading Profile</h3>
+            <p className="text-muted-foreground mb-6">{error}</p>
+            <Button onClick={handleRetry}>Try Again</Button>
+          </div>
+        ) : (
+          <form onSubmit={handleSubmit(onSubmit)} className="space-y-8 relative">
+            {/* Company Overview */}
+            <Card className="overflow-hidden border-muted/20 bg-[#1E1E1E]">
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <Building2 className="h-5 w-5 text-primary" />
+                  <span>🏢 Company Overview</span>
+                </CardTitle>
+                <CardDescription>
+                  Basic information about your company
+                </CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <div>
+                  <label className="block text-sm font-medium mb-1">
+                    Company Name <span className="text-red-500">*</span>
+                  </label>
+                  <Controller
+                    name="company_name"
+                    control={control}
+                    render={({ field }) => (
+                      <Input
+                        {...field}
+                        className={`bg-[#222222] border-[#FFFFFF1A] ${
+                          errors.company_name ? "border-red-500" : "focus:border-primary/50"
+                        } transition-colors`}
+                        placeholder="Enter your company name"
+                      />
+                    )}
+                  />
+                  {errors.company_name && (
+                    <p className="text-red-500 text-xs mt-1">{errors.company_name.message}</p>
+                  )}
+                </div>
+                
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-sm font-medium mb-1">
+                      Industry Sector <span className="text-red-500">*</span>
+                    </label>
+                    <Controller
+                      name="industry_sector"
+                      control={control}
+                      render={({ field }) => (
+                        <select
+                          {...field}
+                          className={`w-full rounded-md bg-[#222222] border border-[#FFFFFF1A] ${
+                            errors.industry_sector ? "border-red-500" : "focus:border-primary/50"
+                          } p-2 text-sm transition-colors`}
+                        >
+                          <option value="">Select industry...</option>
+                          {INDUSTRY_SECTORS.map((sector) => (
+                            <option key={sector} value={sector}>
+                              {sector}
+                            </option>
+                          ))}
+                        </select>
+                      )}
+                    />
+                    {errors.industry_sector && (
+                      <p className="text-red-500 text-xs mt-1">{errors.industry_sector.message}</p>
+                    )}
+                  </div>
+                  
+                  <div>
+                    <label className="block text-sm font-medium mb-1">
+                      Business Model <span className="text-red-500">*</span>
+                    </label>
+                    <Controller
+                      name="business_model"
+                      control={control}
+                      render={({ field }) => (
+                        <select
+                          {...field}
+                          className={`w-full rounded-md bg-[#222222] border border-[#FFFFFF1A] ${
+                            errors.business_model ? "border-red-500" : "focus:border-primary/50"
+                          } p-2 text-sm transition-colors`}
+                        >
+                          <option value="">Select business model...</option>
+                          {BUSINESS_MODELS.map((model) => (
+                            <option key={model} value={model}>
+                              {model}
+                            </option>
+                          ))}
+                        </select>
+                      )}
+                    />
+                    {errors.business_model && (
+                      <p className="text-red-500 text-xs mt-1">{errors.business_model.message}</p>
+                    )}
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+            
+            {/* Market Details */}
+            <Card className="overflow-hidden border-muted/20 bg-[#1E1E1E]">
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <Globe className="h-5 w-5 text-primary" />
+                  <span>🌍 Market Details</span>
+                </CardTitle>
+                <CardDescription>
+                  Information about your target market and customers
+                </CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <div>
+                  <label className="block text-sm font-medium mb-1">
+                    Target Customer Segment <span className="text-red-500">*</span>
+                  </label>
+                  <Controller
+                    name="customer_segment"
+                    control={control}
+                    render={({ field }) => (
+                      <MultiSelect
+                        options={CUSTOMER_SEGMENTS}
+                        value={field.value}
+                        onChange={field.onChange}
+                        error={errors.customer_segment?.message}
+                      />
+                    )}
+                  />
+                </div>
+                
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-sm font-medium mb-1">
+                      Geographic Focus <span className="text-red-500">*</span>
+                    </label>
+                    <Controller
+                      name="geographic_focus"
+                      control={control}
+                      render={({ field }) => (
+                        <Input
+                          {...field}
+                          className={`bg-[#222222] border-[#FFFFFF1A] ${
+                            errors.geographic_focus ? "border-red-500" : "focus:border-primary/50"
+                          } transition-colors`}
+                          placeholder="Global, US, Europe, etc."
+                        />
+                      )}
+                    />
+                    {errors.geographic_focus && (
+                      <p className="text-red-500 text-xs mt-1">{errors.geographic_focus.message}</p>
+                    )}
+                  </div>
+                  
+                  <div>
+                    <label className="block text-sm font-medium mb-1">
+                      Currency Type <span className="text-red-500">*</span>
+                    </label>
+                    <Controller
+                      name="currency_type"
+                      control={control}
+                      render={({ field }) => (
+                        <select
+                          {...field}
+                          className={`w-full rounded-md bg-[#222222] border border-[#FFFFFF1A] ${
+                            errors.currency_type ? "border-red-500" : "focus:border-primary/50"
+                          } p-2 text-sm transition-colors`}
+                        >
+                          <option value="">Select currency...</option>
+                          {CURRENCIES.map((currency) => (
+                            <option key={currency} value={currency}>
+                              {currency}
+                            </option>
+                          ))}
+                        </select>
+                      )}
+                    />
+                    {errors.currency_type && (
+                      <p className="text-red-500 text-xs mt-1">{errors.currency_type.message}</p>
+                    )}
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+            
+            {/* Growth Context */}
+            <Card className="overflow-hidden border-muted/20 bg-[#1E1E1E]">
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <TrendingUp className="h-5 w-5 text-primary" />
+                  <span>📈 Growth Context</span>
+                </CardTitle>
+                <CardDescription>
+                  Details about your company's growth stage and focus
+                </CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <div>
+                  <label className="block text-sm font-medium mb-1">
+                    Stage of Company <span className="text-red-500">*</span>
+                  </label>
+                  <Controller
+                    name="stage"
+                    control={control}
+                    render={({ field }) => (
+                      <select
+                        {...field}
+                        className={`w-full rounded-md bg-[#222222] border border-[#FFFFFF1A] ${
+                          errors.stage ? "border-red-500" : "focus:border-primary/50"
+                        } p-2 text-sm transition-colors`}
+                      >
+                        <option value="">Select company stage...</option>
+                        {COMPANY_STAGES.map((stage) => (
+                          <option key={stage} value={stage}>
+                            {stage}
+                          </option>
+                        ))}
+                      </select>
+                    )}
+                  />
+                  {errors.stage && (
+                    <p className="text-red-500 text-xs mt-1">{errors.stage.message}</p>
+                  )}
+                </div>
+                
+                <div>
+                  <div className="flex items-center gap-1">
+                    <label className="block text-sm font-medium mb-1">
+                      Strategic Focus <span className="text-red-500">*</span>
+                    </label>
+                    <div className="relative group">
+                      <Info className="h-4 w-4 text-muted-foreground cursor-help" />
+                      <div className="absolute bottom-full left-1/2 transform -translate-x-1/2 mb-2 p-2 bg-black/80 rounded text-xs w-48 opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none">
+                        Select your top areas of business focus to better customize your KPIs and analytics
+                      </div>
+                    </div>
+                  </div>
+                  <Controller
+                    name="strategic_focus"
+                    control={control}
+                    render={({ field }) => (
+                      <MultiSelect
+                        options={STRATEGIC_FOCUS_OPTIONS}
+                        value={field.value}
+                        onChange={field.onChange}
+                        error={errors.strategic_focus?.message}
+                      />
+                    )}
+                  />
+                </div>
+              </CardContent>
+            </Card>
+            
+            {/* Deep Company Context */}
+            <Card className="overflow-hidden border-muted/20 bg-[#1E1E1E]">
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <BrainCircuit className="h-5 w-5 text-primary" />
+                  <span>🧠 Deep Company Context</span>
+                </CardTitle>
+                <CardDescription>
+                  Help us understand your company's specific needs and challenges
+                </CardDescription>
+              </CardHeader>
+              <CardContent>
+                <div>
+                  <div className="flex items-center gap-1">
+                    <label className="block text-sm font-medium mb-1">
+                      Custom Company Prompt <span className="text-red-500">*</span>
+                    </label>
+                    <div className="relative group">
+                      <Info className="h-4 w-4 text-muted-foreground cursor-help" />
+                      <div className="absolute bottom-full left-1/2 transform -translate-x-1/2 mb-2 p-2 bg-black/80 rounded text-xs w-60 opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none">
+                        This helps our AI understand your specific business needs to generate better KPIs and dashboards
+                      </div>
+                    </div>
+                  </div>
+                  <Controller
+                    name="custom_prompt"
+                    control={control}
+                    render={({ field }) => (
+                      <Textarea
+                        {...field}
+                        className={`bg-[#222222] border-[#FFFFFF1A] min-h-[150px] ${
+                          errors.custom_prompt ? "border-red-500" : "focus:border-primary/50"
+                        } transition-colors`}
+                        placeholder="Describe your company's specific goals, challenges, and what metrics matter most to you. This helps our AI customize your dashboards and KPIs."
+                      />
+                    )}
+                  />
+                  {errors.custom_prompt && (
+                    <p className="text-red-500 text-xs mt-1">{errors.custom_prompt.message}</p>
+                  )}
+                </div>
+              </CardContent>
+            </Card>
+            
+            {/* Save Button - Desktop: sticky at bottom, Mobile: fixed floating button */}
+            <div className="sticky bottom-6 z-10 flex justify-between items-center">
+              <div className="text-sm text-muted-foreground">
+                {isAutosaving && <span className="text-amber-400">Saving...</span>}
+                {lastSaved && !isAutosaving && <span>Last saved: {lastSaved.toLocaleTimeString()}</span>}
+              </div>
+              <Button
+                type="submit"
+                className="bg-gradient-to-r from-primary to-violet-600 hover:from-primary/90 hover:to-violet-700 shadow-lg"
+                disabled={saving}
+              >
+                {saving ? (
+                  <>
+                    <div className="h-4 w-4 border-2 border-white border-t-transparent rounded-full animate-spin mr-2"></div>
+                    Saving...
+                  </>
+                ) : (
+                  <>
+                    <Save className="h-4 w-4 mr-2" />
+                    Save Changes
+                  </>
+                )}
+              </Button>
+            </div>
+            
+            {/* Mobile floating save button */}
+            <div className="md:hidden fixed bottom-6 right-6 z-50">
+              <Button
+                type="submit"
+                className="h-14 w-14 rounded-full bg-gradient-to-r from-primary to-violet-600 hover:from-primary/90 hover:to-violet-700 shadow-lg p-0 flex items-center justify-center"
+                disabled={saving}
+              >
+                {saving ? (
+                  <div className="h-5 w-5 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
+                ) : (
+                  <Save className="h-6 w-6" />
+                )}
+              </Button>
+            </div>
+          </form>
+        )}
+      </main>
+    </div>
+  );
+}
