@@ -93,7 +93,6 @@ export function FaqWaitlist() {
             Got questions about Metrically? We've got answers.
           </p>
         </motion.div>
-        
         <motion.div 
           variants={containerVariants}
           initial="hidden"

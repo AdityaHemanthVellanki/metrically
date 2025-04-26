@@ -108,7 +108,7 @@ const databaseTypes = [
   { id: "snowflake", name: "Snowflake", icon: <Database className="text-cyan-400" /> }
 ];
 
-const kpiData = [
+export const kpiData = [
   {
     id: "1",
     name: "Monthly Active Users",
@@ -140,7 +140,7 @@ const kpiData = [
     name: "Churn Rate",
     value: "2.4%",
     change: "-0.5%",
-    trend: "down",
+    trend: 'down' as const,
     category: "Retention",
     chartType: "gauge",
     description: "Percentage of customers who cancel their subscription in a given period.",
@@ -372,7 +372,7 @@ const DashboardBuilderFeature = () => {
       title: "New Widget",
       value: "0",
       change: "+0%",
-      trend: "up",
+      trend: 'up',
       chartType: "bar",
       x: widgets.length % selectedLayout.columns,
       y: Math.floor(widgets.length / selectedLayout.columns),
