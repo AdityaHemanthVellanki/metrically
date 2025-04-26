@@ -1,37 +1,13 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
 
-## Getting Started
+# Metrically
 
-First, run the development server:
+Metrically is a gamified, interactive analytics platform designed to help product and data teams unlock insights with ease.
+## Key Features
+- **KPI Generator:** Instantly generate and explore key product metrics. Each KPI is displayed in its own grid cell, with a visualization placeholder and expandable details (description, calculation, importance, benchmark).
+- **SQL Query Generator:** Convert natural language prompts into ready-to-run SQL queries. Copy queries to your clipboard and see example use cases in real time.
+- **Dashboard Builder:** Drag, drop, and customize your own analytics dashboard with interactive widgets.
+- **Interactive Demos:** Try out each feature directly on the landing page—see how KPI generation, SQL generation, and dashboard creation work in real time.
 
-```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
-```
+Metrically is built with React, Next.js, Framer Motion, and Lucide React for a modern, responsive, and visually stunning experience.
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
-
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
-
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
-
-## Learn More
-
-To learn more about Next.js, take a look at the following resources:
-
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
-
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
-
-## Deploy on Vercel
-
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
-
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
-# metrically
+---
