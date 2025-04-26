@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef } from "react"
 import { Button } from "@/components/ui/button"
+import { useAuth } from "@/contexts/auth-context"
 import { Input } from "@/components/ui/input"
 import { ArrowRight, CheckCircle, BarChart4, LineChart, PieChart, Sparkles, Code2, LayoutDashboard } from "lucide-react"
 import { toast } from "sonner"
@@ -7,6 +8,7 @@ import { motion, AnimatePresence } from "framer-motion"
 import { cn } from "@/lib/utils"
 
 export function HeroWaitlist() {
+  const { isAuthenticated } = useAuth();
   const [email, setEmail] = useState("")
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [typedText, setTypedText] = useState("")
@@ -62,15 +64,27 @@ export function HeroWaitlist() {
     }, 800)
   }
 
-  // Generate random floating particles
-  const particles = Array.from({ length: 15 }).map((_, i) => ({
-    id: i,
-    x: Math.random() * 100,
-    y: Math.random() * 100,
-    size: Math.random() * 6 + 2,
-    duration: Math.random() * 20 + 10,
-    delay: Math.random() * 5
-  }))
+  // Generate random floating particles only on the client to avoid hydration mismatch
+  const [particles, setParticles] = useState<Array<{
+    id: number;
+    x: number;
+    y: number;
+    size: number;
+    duration: number;
+    delay: number;
+  }>>([]);
+
+  useEffect(() => {
+    const generated = Array.from({ length: 15 }).map((_, i) => ({
+      id: i,
+      x: Math.random() * 100,
+      y: Math.random() * 100,
+      size: Math.random() * 6 + 2,
+      duration: Math.random() * 20 + 10,
+      delay: Math.random() * 5
+    }));
+    setParticles(generated);
+  }, []);
   
   return (
     <section 
@@ -166,6 +180,13 @@ export function HeroWaitlist() {
       
       <div className="container mx-auto px-4">
         <div className="max-w-4xl mx-auto text-center">
+          {/*
+            Auth UI logic:
+            - If authenticated: show only the Get Started button (same style/placement as Sign Up)
+            - If not authenticated: show only Sign Up and Login buttons
+            - Never log out the user here; just display the correct UI
+          */}
+
           <motion.div 
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}

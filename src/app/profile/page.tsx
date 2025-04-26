@@ -1,21 +1,22 @@
 "use client";
 import { useEffect, useState } from "react";
 import { supabase } from "@/lib/supabase";
+import type { User } from '@supabase/supabase-js';
 import { Button } from "@/components/ui/button";
 
 export default function ProfilePage() {
-  const [user, setUser] = useState(null);
+  const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    supabase.auth.getUser().then(({ data }) => {
-      setUser(data.user);
+    supabase!.auth.getUser().then(({ data }) => {
+      setUser(data.user ?? null);
       setLoading(false);
     });
   }, []);
 
   const handleLogout = async () => {
-    await supabase.auth.signOut();
+    await supabase!.auth.signOut();
     window.location.href = "/auth/login";
   };
 

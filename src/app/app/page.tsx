@@ -1,18 +1,24 @@
 "use client";
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useAuth } from "@/components/AuthProvider";
 
 export default function AppHome() {
   const { user, loading } = useAuth();
   const router = useRouter();
+  const [mounted, setMounted] = useState(false);
 
   useEffect(() => {
-    if (!loading && !user) {
+    setMounted(true);
+  }, []);
+
+  useEffect(() => {
+    if (mounted && !loading && !user) {
       router.replace("/auth/login");
     }
-  }, [user, loading, router]);
+  }, [user, loading, router, mounted]);
 
+  if (!mounted) return null;
   if (loading) return <div className="flex justify-center items-center h-screen">Loading...</div>;
   if (!user) return null;
 
