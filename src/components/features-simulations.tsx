@@ -805,7 +805,7 @@ export const DashboardFeature = () => {
 // Second instance of AnimatedCursor removed (duplicate)
 
 // Insights Anomaly Detector Feature (Replacing SQL Generator)
-const InsightsAnomalyFeature = () => {
+export const InsightsAnomalyFeature = () => {
   const [selectedMetric, setSelectedMetric] = useState("revenue");
   const [timeframe, setTimeframe] = useState("last30days");
   const [anomalies, setAnomalies] = useState<Array<{date: string, value: number, expected: number, severity: string}>>([]);
@@ -1103,7 +1103,7 @@ export function FeaturesSimulations() {
             <KpiGeneratorFeature />
           </div>
           
-          {/* Anomaly Insights Feature (Replaced SQL Generator) */}
+          {/* Real-time Anomaly Detection Feature */}
           <div className="feature-card md:col-span-1 raycast-glass rounded-lg border border-white/10 bg-black/30 backdrop-blur-md overflow-hidden shadow-glow-sm">
             <InsightsAnomalyFeature />
           </div>

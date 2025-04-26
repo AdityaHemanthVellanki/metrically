@@ -73,7 +73,7 @@ export function NavbarWaitlist() {
             {navItems.map((item) => (
               <motion.button 
                 key={item.id}
-                onClick={() => scrollToSection(item.id)}
+                onClick={() => scrollToSection("")}
                 className="text-sm font-medium text-slate-700 dark:text-slate-300 hover:text-indigo-500 dark:hover:text-indigo-400 transition-colors"
                 whileHover={{ scale: 1.05 }}
                 whileTap={{ scale: 0.95 }}
@@ -85,19 +85,34 @@ export function NavbarWaitlist() {
           
           <div className="flex items-center space-x-4">
             <ThemeToggle />
-            
             <motion.div
               whileHover={{ scale: 1.05 }}
               whileTap={{ scale: 0.95 }}
             >
-              <Button 
-                onClick={() => scrollToSection("waitlist")}
-                className="bg-gradient-to-r from-indigo-500 to-violet-500 hover:from-indigo-600 hover:to-violet-600 text-white font-medium rounded-full px-6"
-                size="sm"
-              >
-                Join Waitlist
-                <ChevronRight className="h-4 w-4 ml-1" />
-              </Button>
+              <Link href="/auth/signup" passHref legacyBehavior>
+                <Button
+                  className="bg-gradient-to-r from-indigo-500 to-violet-500 hover:from-indigo-600 hover:to-violet-600 text-white font-medium rounded-full px-6"
+                  size="sm"
+                >
+                  Sign Up
+                  <ChevronRight className="h-4 w-4 ml-1" />
+                </Button>
+              </Link>
+            </motion.div>
+            <motion.div
+              whileHover={{ scale: 1.05 }}
+              whileTap={{ scale: 0.95 }}
+              className="ml-3"
+            >
+              <Link href="/auth/login" passHref legacyBehavior>
+                <Button
+                  variant="outline"
+                  className="font-medium rounded-full px-6 border-white/40 text-white bg-white/10 hover:bg-white/20 backdrop-blur"
+                  size="sm"
+                >
+                  Login
+                </Button>
+              </Link>
             </motion.div>
           </div>
         </div>

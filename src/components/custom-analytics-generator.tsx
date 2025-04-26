@@ -4,7 +4,8 @@ import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Switch } from '@/components/ui/switch';
+// import { Switch } from "@/components/ui/switch"
+// TODO: Replace with a valid Switch component or implementation';
 import { ChartBar, Globe, SparklesIcon, ArrowRight, LoaderIcon, PlusIcon, Save, Download } from 'lucide-react';
 import { toast } from 'sonner';
 

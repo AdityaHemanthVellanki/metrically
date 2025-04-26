@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useForm, SubmitHandler } from 'react-hook-form';
+import type { Resolver } from "react-hook-form";
 import * as z from 'zod';
 import { toast } from 'sonner';
 import { Loader2, Sparkles, Target } from 'lucide-react';
@@ -66,7 +67,7 @@ export function KPIGeneratorForm({ onKPIGenerated }: KPIGeneratorFormProps) {
   
   // Define form with validation
   const form = useForm<FormData>({
-    resolver: zodResolver(formSchema),
+    resolver: zodResolver(formSchema) as Resolver<FormData>,
     defaultValues: {
       input_type: 'guided',
       product_type: '',

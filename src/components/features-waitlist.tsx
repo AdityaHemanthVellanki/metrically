@@ -1,4 +1,4 @@
-"use client"
+
 
 import { 
   BarChart4, 
@@ -31,9 +31,9 @@ export function FeaturesWaitlist() {
       description: "Seamlessly connect to your existing data sources to extract the right information for your KPIs."
     },
     {
-      icon: <Code2 className="h-8 w-8 text-indigo-500 dark:text-indigo-400" />,
-      title: "Tech Stack Integration",
-      description: "Metrically adapts to your existing technology stack for seamless implementation."
+      icon: <Layers className="h-8 w-8 text-indigo-500 dark:text-indigo-400" />,
+      title: "Cohort Analysis",
+      description: "Analyze user behavior over time, uncover retention patterns, and drive actionable insights with interactive cohort breakdowns."
     },
     {
       icon: <SparklesIcon className="h-8 w-8 text-indigo-500 dark:text-indigo-400" />,

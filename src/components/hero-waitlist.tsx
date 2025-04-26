@@ -1,5 +1,3 @@
-"use client"
-
 import { useState, useEffect, useRef } from "react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -176,7 +174,7 @@ export function HeroWaitlist() {
           >
             <span className="flex items-center gap-1.5">
               <Sparkles className="h-4 w-4" />
-              <span>Coming Soon</span>
+              <span>Instant, Actionable Insights</span>
             </span>
           </motion.div>
           
@@ -199,36 +197,6 @@ export function HeroWaitlist() {
             Build your perfect startup metric system in seconds using fast automation.
           </motion.p>
           
-          <motion.div 
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.5, delay: 0.6 }}
-            className="glass-card p-8 mb-10 max-w-xl mx-auto rounded-xl"
-          >
-            <h3 className="text-xl font-semibold mb-3 text-foreground">Join the waitlist</h3>
-            <p className="text-muted-foreground mb-6 text-lg">Be the first to know when Metrically launches</p>
-            
-            <form onSubmit={handleSubmit} className="flex flex-col sm:flex-row gap-4">
-              <Input
-                type="email"
-                placeholder="Enter your email"
-                className="flex-grow text-base py-6 glass-input"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                disabled={isSubmitting}
-                required
-              />
-              <Button 
-                type="submit" 
-                className="raycast-button"
-                disabled={isSubmitting}
-                size="lg"
-              >
-                {isSubmitting ? "Joining..." : "Join now!"}
-                <ArrowRight className="ml-2 h-5 w-5" />
-              </Button>
-            </form>
-          </motion.div>
           
           {/* Feature highlights */}
           <motion.div
@@ -249,8 +217,8 @@ export function HeroWaitlist() {
               <div className="bg-primary/10 p-3 rounded-lg w-12 h-12 flex items-center justify-center mb-4">
                 <Code2 className="h-6 w-6 text-primary" />
               </div>
-              <h3 className="text-lg font-medium mb-2">Auto-Generated SQL</h3>
-              <p className="text-muted-foreground text-sm">Get ready-to-use SQL queries for your data stack</p>
+              <h3 className="text-lg font-medium mb-2">Cohort Analysis</h3>
+              <p className="text-muted-foreground text-sm">Track user behavior and retention patterns over time</p>
             </div>
             
             <div className="glass p-6 rounded-xl backdrop-blur-md">

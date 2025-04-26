@@ -39,7 +39,7 @@ export function getSupabaseClient(): SupabaseClient | null {
     // Test the connection by making a simple query
     supabaseInstance.from('waitlist').select('count').limit(1)
       .then(() => console.log('Supabase connection test successful'))
-      .catch((err: any) => console.error('Supabase connection test failed:', err))
+      .then(undefined, (err: any) => console.error('Supabase connection test failed:', err))
     
     console.log('Supabase client created successfully')
     return supabaseInstance
@@ -49,5 +49,5 @@ export function getSupabaseClient(): SupabaseClient | null {
   }
 }
 
-// For backward compatibility
-export const supabase = null
+// Export a singleton supabase client instance for use throughout the app
+export const supabase = getSupabaseClient();

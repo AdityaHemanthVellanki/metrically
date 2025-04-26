@@ -10,11 +10,12 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { ChartBar, SparklesIcon } from 'lucide-react';
 
 export default function DashboardPage() {
-  const [kpiResponse, setKpiResponse] = useState<Record<string, unknown> | null>(null);
+  type KPIGenerationResponse = { [key: string]: any };
+const [kpiResponse, setKpiResponse] = useState<KPIGenerationResponse | null>(null);
   const [activeTab, setActiveTab] = useState('kpi-generator');
   
   // Handler for when KPI system is generated
-  const handleKPIGenerated = (response: Record<string, unknown>) => {
+  const handleKPIGenerated = (response: KPIGenerationResponse) => {
     setKpiResponse(response);
     window.scrollTo({ top: 0, behavior: 'smooth' });
   };

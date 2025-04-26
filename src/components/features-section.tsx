@@ -11,45 +11,23 @@ import { motion, AnimatePresence } from "framer-motion"
 import { cn } from "@/lib/utils"
 import { 
   BarChart3, 
-  Code2, 
   LayoutDashboard, 
   Sparkles, 
-  CheckCircle, 
-  ChevronRight, 
-  ArrowRight, 
-  LineChart, 
-  PieChart, 
-  Gauge, 
-  Layers, 
-  Database, 
-  Table, 
-  Terminal, 
-  Search, 
-  Zap, 
-  Play, 
-  Pause, 
-  RotateCw,
   Lightbulb,
-  Braces,
-  Maximize,
-  Minimize,
-  Plus,
-  Minus,
-  Trash2,
-  Settings,
-  Sliders,
-  Eye,
-  EyeOff,
+  LineChart,
+  PieChart,
+  Gauge,
+  RotateCw,
   ArrowUpRight,
   ArrowDownRight,
+  Minus,
   ClipboardCopy,
-  Calculator,
-  Target,
-  MessageCircle,
-  X,
-  ArrowUp,
-  Download
+  Plus,
+  Trash2,
+  Eye,
+  Layers
 } from "lucide-react"
+import { InsightsAnomalyFeature } from "./features-simulations";
 
 // Types for interactive components
 type KPI = {
@@ -66,60 +44,6 @@ type KPI = {
 
 // Import rich KPI data for interactive features
 import { kpiData } from "@/components/features-simulations"
-
-export const demoSqlQueries: Record<string, string> = {
-  mau: `-- Monthly Active Users (PostgreSQL)
-SELECT
-  DATE_TRUNC('month', action_date) AS month,
-  COUNT(DISTINCT user_id) AS monthly_active_users
-FROM user_actions
-WHERE 
-  action_date >= NOW() - INTERVAL '6 months'
-GROUP BY DATE_TRUNC('month', action_date)
-ORDER BY month DESC;
-`,
-  conversion: `-- Conversion Rate by Signup Source (PostgreSQL)
-SELECT
-  source,
-  COUNT(DISTINCT visitor_id) AS total_visitors,
-  COUNT(DISTINCT CASE WHEN converted = TRUE THEN visitor_id END) AS conversions,
-  ROUND(
-    (COUNT(DISTINCT CASE WHEN converted = TRUE THEN visitor_id END)::numeric / 
-     COUNT(DISTINCT visitor_id)::numeric) * 100, 2
-  ) AS conversion_rate
-FROM visitor_sessions
-WHERE 
-  session_date >= CURRENT_DATE - INTERVAL '30 days'
-GROUP BY source
-ORDER BY conversion_rate DESC;
-`,
-  churn: `-- Monthly Churn Rate (PostgreSQL)
-WITH monthly_customers AS (
-  SELECT
-    DATE_TRUNC('month', date) AS month,
-    COUNT(DISTINCT customer_id) AS total_customers
-  FROM subscriptions
-  WHERE status = 'active'
-  GROUP BY DATE_TRUNC('month', date)
-),
-churned_customers AS (
-  SELECT
-    DATE_TRUNC('month', churn_date) AS month,
-    COUNT(DISTINCT customer_id) AS churned
-  FROM subscription_events
-  WHERE event_type = 'churn'
-  GROUP BY DATE_TRUNC('month', churn_date)
-)
-SELECT
-  mc.month,
-  mc.total_customers,
-  COALESCE(cc.churned, 0) AS churned_customers,
-  ROUND((COALESCE(cc.churned, 0)::numeric / mc.total_customers::numeric) * 100, 2) AS churn_rate
-FROM monthly_customers mc
-LEFT JOIN churned_customers cc ON mc.month = cc.month
-ORDER BY mc.month DESC;
-`
-};
 
 // Dashboard widget type
 type DashboardWidget = {
@@ -266,71 +190,8 @@ const KpiGeneratorFeature = () => {
   );
 };
 
-// SQL Generator Feature
-const SqlGeneratorFeature = () => {
-  const [queryPrompt, setQueryPrompt] = useState('');
-  const [generatedSql, setGeneratedSql] = useState('');
-  const [isGenerating, setIsGenerating] = useState(false);
-  const [copied, setCopied] = useState(false);
-
-  const handleGenerate = () => {
-    setIsGenerating(true);
-    setTimeout(() => {
-      let sql = '';
-      if (queryPrompt.toLowerCase().includes('active user')) {
-        sql = demoSqlQueries.mau;
-      } else if (queryPrompt.toLowerCase().includes('conversion')) {
-        sql = demoSqlQueries.conversion;
-      } else if (queryPrompt.toLowerCase().includes('churn')) {
-        sql = demoSqlQueries.churn;
-      } else {
-        sql = `-- Query generated for: ${queryPrompt}\nSELECT * FROM events WHERE event_time >= NOW() - INTERVAL '30 days';`;
-      }
-      setGeneratedSql(sql);
-      setIsGenerating(false);
-    }, 1200);
-  };
-
-  const handleCopy = () => {
-    setCopied(true);
-    navigator.clipboard.writeText(generatedSql);
-    setTimeout(() => setCopied(false), 1200);
-  };
-
-  return (
-    <div className="bg-black/40 p-6 rounded-lg border border-white/10 backdrop-blur-md">
-      <div className="mb-4">
-        <Textarea
-          value={queryPrompt}
-          onChange={e => setQueryPrompt(e.target.value)}
-          placeholder="Describe the KPI or metric you want a SQL query for..."
-          className="bg-black/60 border border-white/10 min-h-[80px]"
-        />
-      </div>
-      <Button onClick={handleGenerate} disabled={isGenerating} className="w-full">
-        {isGenerating ? (
-          <span className="flex items-center gap-2"><RotateCw className="animate-spin h-4 w-4" /> Generating...</span>
-        ) : (
-          <span className="flex items-center gap-2"><Sparkles className="h-4 w-4" /> Generate SQL</span>
-        )}
-      </Button>
-      {generatedSql && (
-        <div className="mt-6">
-          <div className="flex justify-between items-center mb-2">
-            <span className="font-medium text-primary">Generated SQL</span>
-            <Button variant="ghost" size="icon" onClick={handleCopy}>
-              <ClipboardCopy className="h-4 w-4" />
-              {copied && <span className="ml-2 text-xs text-green-400">Copied!</span>}
-            </Button>
-          </div>
-          <pre className="bg-black/60 rounded p-4 text-xs overflow-x-auto border border-white/10">
-            <code>{generatedSql}</code>
-          </pre>
-        </div>
-      )}
-    </div>
-  );
-};
+// Cohort Analysis Feature
+import { CohortAnalysis } from '@/components/cohort-analysis';
 
 // Dashboard Builder Component
 const DashboardBuilderFeature = () => {
@@ -436,6 +297,21 @@ const FeaturesSection = () => {
   ]);
   const [selectedWidget, setSelectedWidget] = useState<string | null>(null);
 
+  // Add widget handler
+  function handleAddWidget(): void {
+    const newWidget: WidgetType = {
+      id: `widget${dashboardWidgets.length + 1}`,
+      name: `Widget ${dashboardWidgets.length + 1}`,
+      type: 'chart',
+    };
+    setDashboardWidgets([...dashboardWidgets, newWidget]);
+  }
+  // Remove widget handler
+  function handleRemoveWidget(id: string) {
+    setDashboardWidgets(dashboardWidgets.filter(widget => widget.id !== id));
+    if (selectedWidget === id) setSelectedWidget(null);
+  }
+
   useEffect(() => {
     const handleMouseMove = (e: MouseEvent) => {
       if (featuresRef.current) {
@@ -453,31 +329,10 @@ const FeaturesSection = () => {
   // Interactive feature tabs
   const featureTabs = [
     { id: "kpi", label: "KPI Generator", icon: <Sparkles className="h-4 w-4" /> },
-    { id: "sql", label: "SQL Generator", icon: <Code2 className="h-4 w-4" /> },
+    { id: "anomaly", label: "Anomaly Insights", icon: <Lightbulb className="h-4 w-4" /> },
+    { id: "cohort", label: "Cohort Analysis", icon: <Layers className="h-4 w-4" /> },
     { id: "dashboard", label: "Dashboard Builder", icon: <LayoutDashboard className="h-4 w-4" /> },
   ];
-
-  // Add widget handler
-  function handleAddWidget(): void {
-    const newWidget: WidgetType = {
-      id: `widget${dashboardWidgets.length + 1}`,
-      name: `Widget ${dashboardWidgets.length + 1}`,
-      type: 'chart',
-    };
-    setDashboardWidgets([...dashboardWidgets, newWidget]);
-  }
-  // Remove widget handler
-  function handleRemoveWidget(id: string) {
-    setDashboardWidgets(dashboardWidgets.filter(widget => widget.id !== id));
-    if (selectedWidget === id) setSelectedWidget(null);
-  }
-
-
-// (removed duplicate mouse movement handler)
-
-  // Interactive feature tabs
-
-// (removed duplicate featureTabs)
 
   return (
     <section
@@ -531,8 +386,11 @@ const FeaturesSection = () => {
           <TabsContent value="kpi" className="mt-6">
             <KpiGeneratorFeature />
           </TabsContent>
-          <TabsContent value="sql" className="mt-6">
-            <SqlGeneratorFeature />
+          <TabsContent value="anomaly" className="mt-6">
+            <InsightsAnomalyFeature />
+          </TabsContent>
+          <TabsContent value="cohort" className="mt-6">
+            <CohortAnalysis />
           </TabsContent>
           <TabsContent value="dashboard" className="mt-6">
             <DashboardBuilderFeature />
