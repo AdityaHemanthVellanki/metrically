@@ -70,6 +70,15 @@ export function LoginForm() {
   return (
     <div className="w-full max-w-md mx-auto p-6 bg-card rounded-xl shadow-sm">
       <div className="text-center mb-8">
+  <button
+    type="button"
+    className="w-full flex items-center justify-center gap-2 border border-border rounded-lg py-2 mb-6 hover:bg-accent transition"
+    style={{ background: '#fff' }}
+    onClick={() => {/* TODO: Insert Google login logic here */}}
+  >
+    <img src="/google-logo.svg" alt="Google" className="h-6 w-6" />
+    <span className="font-medium text-base text-muted-foreground">Continue with Google</span>
+  </button>
         <h2 className="text-2xl font-bold mb-2">Welcome back</h2>
         <p className="text-muted-foreground">Log in to your Metrically account</p>
       </div>

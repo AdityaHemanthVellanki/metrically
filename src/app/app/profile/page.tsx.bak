@@ -179,31 +179,28 @@ function StartupProfilePageInner() {
           .eq('user_id', user.id)
           .single();
         if (error) {
-          if (error.code === 'PGRST116') {
-            // No profile found for this user
-            setHasExistingProfile(false);
-          } else {
-            throw error;
+          console.error('Error fetching profile:', error);
+          if (error.code !== 'PGRST116') {
+            setError('Failed to load profile data. Please try again.');
           }
         } else if (data) {
           setHasExistingProfile(true);
           setProfileId(data.startup_id);
-          // Reset form with existing data
-          reset({
-            company_name: data.company_name || "",
-            industry_sector: data.industry_sector || "",
-            business_model: data.business_model || "",
-            customer_segment: data.customer_segment || [],
-            geographic_focus: data.geographic_focus || "",
-            currency_type: data.currency_type || "",
-            stage: data.stage || "",
-            strategic_focus: data.strategic_focus || [],
-            custom_prompt: data.custom_prompt || ""
-          });
+          const formData = {
+            ...data,
+            customer_segment: Array.isArray(data.customer_segment)
+              ? data.customer_segment
+              : [data.customer_segment],
+            strategic_focus: Array.isArray(data.strategic_focus)
+              ? data.strategic_focus
+              : [data.strategic_focus],
+          };
+          reset(formData);
+          setLastSaved(new Date(data.updated_at));
         }
       } catch (err) {
-        console.error('Error fetching profile:', err);
-        setError('Failed to load profile data. Please try again.');
+        console.error('Error:', err);
+        setError('An unexpected error occurred. Please try again.');
       } finally {
         setLoading(false);
       }
@@ -225,17 +222,25 @@ function StartupProfilePageInner() {
   }, [formValues, isDirty, user, hasExistingProfile, profileId]);
 
   const handleAutosave = async () => {
-    if (!user || !hasExistingProfile || !profileId || !isDirty || !supabase) return;
+    if (!isDirty || !user || !profileId) return;
     setIsAutosaving(true);
     try {
+      const fieldsToUpdate = Object.keys(dirtyFields).reduce((acc, key) => {
+        acc[key] = formValues[key as keyof StartupProfileFormData];
+        return acc;
+      }, {} as Record<string, any>);
+      if (Object.keys(fieldsToUpdate).length === 0) {
+        setIsAutosaving(false);
+        return;
+      }
+      if (!supabase) throw new Error('Supabase client not initialized');
       const { error } = await supabase
         .from('startup_profiles')
         .update({
-          ...formValues,
+          ...fieldsToUpdate,
           updated_at: new Date().toISOString()
         })
         .eq('startup_id', profileId);
-      
       if (error) {
         console.error('Autosave error:', error);
       } else {
@@ -264,10 +269,12 @@ function StartupProfilePageInner() {
         
         if (error) throw error;
         
-        toast.success('Profile updated successfully!');
+        toast.success('Startup Profile saved successfully');
+        setLastSaved(new Date());
       } else {
+        // Create new profile
         if (!supabase) throw new Error('Supabase client not initialized');
-        const { error } = await supabase
+        const { data: newProfile, error } = await supabase
           .from('startup_profiles')
           .insert([
             {
@@ -276,23 +283,26 @@ function StartupProfilePageInner() {
               created_at: new Date().toISOString(),
               updated_at: new Date().toISOString()
             }
-          ]);
+          ])
+          .select();
         
         if (error) throw error;
         
-        toast.success('Profile created successfully!');
-        setHasExistingProfile(true);
+        if (newProfile && newProfile.length > 0) {
+          setProfileId(newProfile[0].startup_id);
+          setHasExistingProfile(true);
+          toast.success('Startup Profile created successfully');
+          setLastSaved(new Date());
+        }
       }
-      setLastSaved(new Date());
-    } catch (err) {
+    } catch (err: any) {
       console.error('Save error:', err);
-      toast.error('Failed to save profile. Please try again.');
+      toast.error(`Error saving: ${err.message || 'Please check your connection or try again'}`);
     } finally {
       setSaving(false);
     }
   };
-
-  // Retry loading profile
+  
   const handleRetry = () => {
     if (!user) return;
     setLoading(true);
@@ -301,37 +311,27 @@ function StartupProfilePageInner() {
     // Re-fetch profile
     const fetchProfileData = async () => {
       try {
+        if (!supabase) {
+          setError('Supabase client not initialized. Please refresh the page.');
+          setLoading(false);
+          return;
+        }
         const { data, error } = await supabase!
           .from('startup_profiles')
           .select('*')
           .eq('user_id', user.id)
           .single();
         
-        if (error) {
-          if (error.code === 'PGRST116') {
-            // No profile found for this user
-            setHasExistingProfile(false);
-          } else {
-            throw error;
-          }
+        if (error && error.code !== 'PGRST116') {
+          setError('Failed to load profile data. Please try again.');
         } else if (data) {
           setHasExistingProfile(true);
           setProfileId(data.startup_id);
-          reset({
-            company_name: data.company_name || "",
-            industry_sector: data.industry_sector || "",
-            business_model: data.business_model || "",
-            customer_segment: data.customer_segment || [],
-            geographic_focus: data.geographic_focus || "",
-            currency_type: data.currency_type || "",
-            stage: data.stage || "",
-            strategic_focus: data.strategic_focus || [],
-            custom_prompt: data.custom_prompt || ""
-          });
+          reset(data);
+          setLastSaved(new Date(data.updated_at));
         }
       } catch (err) {
-        console.error('Error fetching profile:', err);
-        setError('Failed to load profile data. Please try again.');
+        setError('An unexpected error occurred. Please try again.');
       } finally {
         setLoading(false);
       }
@@ -382,27 +382,23 @@ function StartupProfilePageInner() {
     );
   };
   
-  const [showToaster, setShowToaster] = useState(false);
-  useEffect(() => { setShowToaster(true); }, []);
-
   return (
     <div className="min-h-screen flex flex-col bg-[#121212]">
       <AppNavbar />
-      {showToaster && (
-        <ToastContainer
-          position="top-right"
-          autoClose={3000}
-          hideProgressBar={false}
-          newestOnTop
-          closeOnClick
-          rtl={false}
-          pauseOnFocusLoss
-          draggable
-          pauseOnHover
-          theme="dark"
-        />
-      )}
-      <main className="flex-1 container mx-auto px-4 pt-24 pb-24" data-hydration="static">
+      <ToastContainer
+        position="top-right"
+        autoClose={3000}
+        hideProgressBar={false}
+        newestOnTop
+        closeOnClick
+        rtl={false}
+        pauseOnFocusLoss
+        draggable
+        pauseOnHover
+        theme="dark"
+      />
+      
+      <main className="flex-1 container mx-auto px-4 pt-24 pb-24">
         {/* Breadcrumb */}
         <div className="flex items-center text-sm mb-6 text-muted-foreground">
           <Link href="/app" className="flex items-center hover:text-primary transition-colors">
@@ -414,80 +410,40 @@ function StartupProfilePageInner() {
         
         {/* Page Title */}
         <div className="mb-8">
-          <h1 className="text-3xl font-bold mb-2">Startup Profile</h1>
+          <h1 className="text-2xl md:text-3xl font-bold mb-2">Startup Profile</h1>
           <p className="text-muted-foreground">
-            Tell us about your company so we can generate relevant KPIs and dashboards
+            Tell us about your business to help Metrically generate personalized dashboards and KPIs.
           </p>
         </div>
         
-        {/* Loading state with suppressHydrationWarning */}
-        {authLoading && (
-          <div suppressHydrationWarning className="flex flex-col items-center justify-center py-12">
-            <div className="h-12 w-12 border-4 border-primary border-t-transparent rounded-full animate-spin mb-4"></div>
-            <p className="text-muted-foreground">Loading your profile...</p>
-          </div>
-        )}
-        
-        {/* Error state */}
-        {error && !loading && (
-          <div className="bg-red-500/10 border border-red-500/20 rounded-lg p-6 mb-8">
-            <div className="flex items-start">
-              <AlertTriangle className="h-6 w-6 text-red-500 mr-3 mt-0.5" />
-              <div>
-                <h3 className="font-medium text-red-500">Failed to load profile</h3>
-                <p className="text-muted-foreground mt-1">{error}</p>
-                <Button 
-                  variant="outline" 
-                  className="mt-4 border-red-500/20 hover:bg-red-500/10 text-red-500"
-                  onClick={handleRetry}
-                >
-                  Try Again
-                </Button>
-              </div>
+        {loading ? (
+          <div className="flex items-center justify-center py-20">
+            <div className="flex flex-col items-center">
+              <div className="h-8 w-8 border-4 border-primary border-t-transparent rounded-full animate-spin mb-4"></div>
+              <p className="text-muted-foreground">Loading profile data...</p>
             </div>
           </div>
-        )}
-        
-        {/* Fallback for new users with no profile */}
-        {!authLoading && !loading && !error && !hasExistingProfile && (
-          <div className="flex flex-col items-center justify-center py-12">
-            <Card className="bg-[#1A1A1A] border-[#FFFFFF1A] max-w-lg w-full">
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2">
-                  <BrainCircuit className="h-5 w-5 text-primary" />
-                  <span>Welcome to Metrically!</span>
-                </CardTitle>
-                <CardDescription>
-                  Get started by telling us about your startup. This helps us generate personalized KPIs and dashboards for you.
-                </CardDescription>
-              </CardHeader>
-              <CardContent>
-                <Button
-                  className="w-full bg-gradient-to-r from-primary to-violet-600 hover:from-primary/90 hover:to-violet-700 shadow-lg"
-                  onClick={() => setHasExistingProfile(true)}
-                >
-                  Start Profile Setup
-                </Button>
-              </CardContent>
-            </Card>
+        ) : error ? (
+          <div className="flex flex-col items-center justify-center py-20">
+            <AlertTriangle className="h-12 w-12 text-amber-500 mb-4" />
+            <h3 className="text-xl font-semibold mb-2">Error Loading Profile</h3>
+            <p className="text-muted-foreground mb-6">{error}</p>
+            <Button onClick={handleRetry}>Try Again</Button>
           </div>
-        )}
-
-        {/* Form */}
-        {!authLoading && !loading && !error && hasExistingProfile && (
-          <form onSubmit={handleSubmit(onSubmit)} className="space-y-8">
-            {/* Company Basics */}
-            <Card className="bg-[#1A1A1A] border-[#FFFFFF1A]">
+        ) : (
+          <form onSubmit={handleSubmit(onSubmit)} className="space-y-8 relative">
+            {/* Company Overview */}
+            <Card className="overflow-hidden border-muted/20 bg-[#1E1E1E]">
               <CardHeader>
                 <CardTitle className="flex items-center gap-2">
                   <Building2 className="h-5 w-5 text-primary" />
-                  <span>Company Basics</span>
+                  <span>🏢 Company Overview</span>
                 </CardTitle>
                 <CardDescription>
                   Basic information about your company
                 </CardDescription>
               </CardHeader>
-              <CardContent className="space-y-6">
+              <CardContent className="space-y-4">
                 <div>
                   <label className="block text-sm font-medium mb-1">
                     Company Name <span className="text-red-500">*</span>
@@ -510,7 +466,7 @@ function StartupProfilePageInner() {
                   )}
                 </div>
                 
-                <div className="grid md:grid-cols-2 gap-6">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div>
                     <label className="block text-sm font-medium mb-1">
                       Industry Sector <span className="text-red-500">*</span>
@@ -519,18 +475,19 @@ function StartupProfilePageInner() {
                       name="industry_sector"
                       control={control}
                       render={({ field }) => (
-                        <Select
+                        <select
                           {...field}
-                          className={`bg-[#222222] border-[#FFFFFF1A] ${
+                          className={`w-full rounded-md bg-[#222222] border border-[#FFFFFF1A] ${
                             errors.industry_sector ? "border-red-500" : "focus:border-primary/50"
-                          } transition-colors`}
+                          } p-2 text-sm transition-colors`}
                         >
-                          {INDUSTRY_SECTORS.map(sector => (
+                          <option value="">Select industry...</option>
+                          {INDUSTRY_SECTORS.map((sector) => (
                             <option key={sector} value={sector}>
                               {sector}
                             </option>
                           ))}
-                        </Select>
+                        </select>
                       )}
                     />
                     {errors.industry_sector && (
@@ -546,18 +503,19 @@ function StartupProfilePageInner() {
                       name="business_model"
                       control={control}
                       render={({ field }) => (
-                        <Select
+                        <select
                           {...field}
-                          className={`bg-[#222222] border-[#FFFFFF1A] ${
+                          className={`w-full rounded-md bg-[#222222] border border-[#FFFFFF1A] ${
                             errors.business_model ? "border-red-500" : "focus:border-primary/50"
-                          } transition-colors`}
+                          } p-2 text-sm transition-colors`}
                         >
-                          {BUSINESS_MODELS.map(model => (
+                          <option value="">Select business model...</option>
+                          {BUSINESS_MODELS.map((model) => (
                             <option key={model} value={model}>
                               {model}
                             </option>
                           ))}
-                        </Select>
+                        </select>
                       )}
                     />
                     {errors.business_model && (
@@ -565,19 +523,25 @@ function StartupProfilePageInner() {
                     )}
                   </div>
                 </div>
-                
+              </CardContent>
+            </Card>
+            
+            {/* Market Details */}
+            <Card className="overflow-hidden border-muted/20 bg-[#1E1E1E]">
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <Globe className="h-5 w-5 text-primary" />
+                  <span>🌍 Market Details</span>
+                </CardTitle>
+                <CardDescription>
+                  Information about your target market and customers
+                </CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-4">
                 <div>
-                  <div className="flex items-center gap-1">
-                    <label className="block text-sm font-medium mb-1">
-                      Customer Segments <span className="text-red-500">*</span>
-                    </label>
-                    <div className="relative group">
-                      <Info className="h-4 w-4 text-muted-foreground cursor-help" />
-                      <div className="absolute bottom-full left-1/2 transform -translate-x-1/2 mb-2 p-2 bg-black/80 rounded text-xs w-48 opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none">
-                        Select all customer segments that apply to your business
-                      </div>
-                    </div>
-                  </div>
+                  <label className="block text-sm font-medium mb-1">
+                    Target Customer Segment <span className="text-red-500">*</span>
+                  </label>
                   <Controller
                     name="customer_segment"
                     control={control}
@@ -592,7 +556,7 @@ function StartupProfilePageInner() {
                   />
                 </div>
                 
-                <div className="grid md:grid-cols-3 gap-6">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div>
                     <label className="block text-sm font-medium mb-1">
                       Geographic Focus <span className="text-red-500">*</span>
@@ -601,21 +565,13 @@ function StartupProfilePageInner() {
                       name="geographic_focus"
                       control={control}
                       render={({ field }) => (
-                        <Select
+                        <Input
                           {...field}
                           className={`bg-[#222222] border-[#FFFFFF1A] ${
                             errors.geographic_focus ? "border-red-500" : "focus:border-primary/50"
                           } transition-colors`}
-                        >
-                          <option value="Global">Global</option>
-                          <option value="North America">North America</option>
-                          <option value="Europe">Europe</option>
-                          <option value="Asia">Asia</option>
-                          <option value="Latin America">Latin America</option>
-                          <option value="Africa">Africa</option>
-                          <option value="Middle East">Middle East</option>
-                          <option value="Oceania">Oceania</option>
-                        </Select>
+                          placeholder="Global, US, Europe, etc."
+                        />
                       )}
                     />
                     {errors.geographic_focus && (
@@ -625,57 +581,73 @@ function StartupProfilePageInner() {
                   
                   <div>
                     <label className="block text-sm font-medium mb-1">
-                      Currency <span className="text-red-500">*</span>
+                      Currency Type <span className="text-red-500">*</span>
                     </label>
                     <Controller
                       name="currency_type"
                       control={control}
                       render={({ field }) => (
-                        <Select
+                        <select
                           {...field}
-                          className={`bg-[#222222] border-[#FFFFFF1A] ${
+                          className={`w-full rounded-md bg-[#222222] border border-[#FFFFFF1A] ${
                             errors.currency_type ? "border-red-500" : "focus:border-primary/50"
-                          } transition-colors`}
+                          } p-2 text-sm transition-colors`}
                         >
-                          {CURRENCIES.map(currency => (
+                          <option value="">Select currency...</option>
+                          {CURRENCIES.map((currency) => (
                             <option key={currency} value={currency}>
                               {currency}
                             </option>
                           ))}
-                        </Select>
+                        </select>
                       )}
                     />
                     {errors.currency_type && (
                       <p className="text-red-500 text-xs mt-1">{errors.currency_type.message}</p>
                     )}
                   </div>
-                  
-                  <div>
-                    <label className="block text-sm font-medium mb-1">
-                      Company Stage <span className="text-red-500">*</span>
-                    </label>
-                    <Controller
-                      name="stage"
-                      control={control}
-                      render={({ field }) => (
-                        <Select
-                          {...field}
-                          className={`bg-[#222222] border-[#FFFFFF1A] ${
-                            errors.stage ? "border-red-500" : "focus:border-primary/50"
-                          } transition-colors`}
-                        >
-                          {COMPANY_STAGES.map(stage => (
-                            <option key={stage} value={stage}>
-                              {stage}
-                            </option>
-                          ))}
-                        </Select>
-                      )}
-                    />
-                    {errors.stage && (
-                      <p className="text-red-500 text-xs mt-1">{errors.stage.message}</p>
+                </div>
+              </CardContent>
+            </Card>
+            
+            {/* Growth Context */}
+            <Card className="overflow-hidden border-muted/20 bg-[#1E1E1E]">
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <TrendingUp className="h-5 w-5 text-primary" />
+                  <span>📈 Growth Context</span>
+                </CardTitle>
+                <CardDescription>
+                  Details about your company's growth stage and focus
+                </CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <div>
+                  <label className="block text-sm font-medium mb-1">
+                    Stage of Company <span className="text-red-500">*</span>
+                  </label>
+                  <Controller
+                    name="stage"
+                    control={control}
+                    render={({ field }) => (
+                      <select
+                        {...field}
+                        className={`w-full rounded-md bg-[#222222] border border-[#FFFFFF1A] ${
+                          errors.stage ? "border-red-500" : "focus:border-primary/50"
+                        } p-2 text-sm transition-colors`}
+                      >
+                        <option value="">Select company stage...</option>
+                        {COMPANY_STAGES.map((stage) => (
+                          <option key={stage} value={stage}>
+                            {stage}
+                          </option>
+                        ))}
+                      </select>
                     )}
-                  </div>
+                  />
+                  {errors.stage && (
+                    <p className="text-red-500 text-xs mt-1">{errors.stage.message}</p>
+                  )}
                 </div>
                 
                 <div>
@@ -686,7 +658,7 @@ function StartupProfilePageInner() {
                     <div className="relative group">
                       <Info className="h-4 w-4 text-muted-foreground cursor-help" />
                       <div className="absolute bottom-full left-1/2 transform -translate-x-1/2 mb-2 p-2 bg-black/80 rounded text-xs w-48 opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none">
-                        Select all strategic areas that are important to your business right now
+                        Select your top areas of business focus to better customize your KPIs and analytics
                       </div>
                     </div>
                   </div>
@@ -706,8 +678,8 @@ function StartupProfilePageInner() {
               </CardContent>
             </Card>
             
-            {/* Company Context */}
-            <Card className="bg-[#1A1A1A] border-[#FFFFFF1A]">
+            {/* Deep Company Context */}
+            <Card className="overflow-hidden border-muted/20 bg-[#1E1E1E]">
               <CardHeader>
                 <CardTitle className="flex items-center gap-2">
                   <BrainCircuit className="h-5 w-5 text-primary" />
@@ -790,12 +762,10 @@ function StartupProfilePageInner() {
               </Button>
             </div>
           </form>
-        )}
       </main>
     </div>
   );
 }
-
 // Export the component as the default export for Next.js
 export default function StartupProfilePage() {
   return <StartupProfilePageInner />;

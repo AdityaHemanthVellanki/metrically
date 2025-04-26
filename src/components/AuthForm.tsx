@@ -1,5 +1,5 @@
 "use client";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabase";
 import { Button } from "@/components/ui/button";
@@ -7,9 +7,7 @@ import { Input } from "@/components/ui/input";
 
 export default function AuthForm({ initialView = "login" }: { initialView?: "login" | "signup" }) {
   // Prevent SSR hydration errors: only render on client
-  if (typeof window === "undefined") {
-    return <div className="min-h-screen flex items-center justify-center"><span>Loading...</span></div>;
-  }
+  const [mounted, setMounted] = useState(false);
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [firstName, setFirstName] = useState("");
@@ -18,6 +16,12 @@ export default function AuthForm({ initialView = "login" }: { initialView?: "log
   const [view, setView] = useState<"login" | "signup">(initialView);
   const [message, setMessage] = useState("");
   const router = useRouter();
+
+  useEffect(() => { setMounted(true); }, []);
+
+  if (!mounted) {
+    return <div className="min-h-screen flex items-center justify-center" suppressHydrationWarning={true}><span>Loading...</span></div>;
+  }
 
   // Handles both login and signup logic
   const handleAuth = async (type: "login" | "signup") => {

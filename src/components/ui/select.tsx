@@ -6,10 +6,18 @@ import { CheckIcon, ChevronDownIcon, ChevronUpIcon } from "lucide-react"
 
 import { cn } from "@/lib/utils"
 
+export type SelectProps = React.ComponentProps<typeof SelectPrimitive.Root> & { className?: string };
+
 function Select({
+  className,
   ...props
-}: React.ComponentProps<typeof SelectPrimitive.Root>) {
-  return <SelectPrimitive.Root data-slot="select" {...props} />
+}: SelectProps) {
+  // className is applied to a wrapper div, not SelectPrimitive.Root
+  return (
+    <div className={className} data-slot="select-wrapper">
+      <SelectPrimitive.Root {...props} />
+    </div>
+  );
 }
 
 function SelectGroup({
