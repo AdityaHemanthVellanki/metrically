@@ -134,6 +134,9 @@ const STRATEGIC_FOCUS_OPTIONS = [
 ];
 
 function StartupProfilePageInner() {
+  // Fix: showToaster state for ToastContainer
+  const [showToaster, setShowToaster] = useState(false);
+  useEffect(() => { setShowToaster(true); }, []);
   const { user, loading: authLoading } = useAuth();
   const router = useRouter();
   const [profileId, setProfileId] = useState<string | null>(null);
@@ -381,9 +384,6 @@ function StartupProfilePageInner() {
       </div>
     );
   };
-  
-  const [showToaster, setShowToaster] = useState(false);
-  useEffect(() => { setShowToaster(true); }, []);
 
   return (
     <div className="min-h-screen flex flex-col bg-[#121212]">
@@ -402,23 +402,47 @@ function StartupProfilePageInner() {
           theme="dark"
         />
       )}
-      <main className="flex-1 container mx-auto px-4 pt-24 pb-24" data-hydration="static">
+      <main className="flex-1 container mx-auto px-4 pt-24 pb-24 font-sans" data-hydration="static">
+        {/* Sticky Save Button (Desktop) */}
+        <div className="hidden md:flex fixed top-6 right-8 z-50">
+          <Button
+            type="submit"
+            form="startup-profile-form"
+            className="px-6 py-3 rounded-lg bg-gradient-to-r from-primary to-violet-600 hover:from-primary/90 hover:to-violet-700 shadow-lg text-base font-semibold"
+            disabled={saving}
+            aria-label="Save changes"
+          >
+            {saving ? (
+              <>
+                <div className="h-5 w-5 border-2 border-white border-t-transparent rounded-full animate-spin mr-2"></div>
+                Saving...
+              </>
+            ) : (
+              <>
+                <Save className="h-5 w-5 mr-2" />
+                Save Changes
+              </>
+            )}
+          </Button>
+        </div>
+
         {/* Breadcrumb */}
-        <div className="flex items-center text-sm mb-6 text-muted-foreground">
+        <div className="flex items-center text-sm mb-6 text-[#AAAAAA]">
           <Link href="/app" className="flex items-center hover:text-primary transition-colors">
             <HomeIcon className="h-4 w-4 mr-1" /> Home
           </Link>
           <ChevronRight className="h-4 w-4 mx-1" />
-          <span className="text-foreground">Startup Profile</span>
+          <span className="text-white">Startup Profile</span>
         </div>
-        
+
         {/* Page Title */}
         <div className="mb-8">
-          <h1 className="text-3xl font-bold mb-2">Startup Profile</h1>
-          <p className="text-muted-foreground">
-            Tell us about your company so we can generate relevant KPIs and dashboards
+          <h1 className="text-3xl font-bold mb-2 text-white">Startup Profile</h1>
+          <p className="text-[#AAAAAA]">
+            Tell us about your startup to get tailored dashboards and KPIs.
           </p>
         </div>
+
         
         {/* Loading state with suppressHydrationWarning */}
         {authLoading && (
@@ -475,109 +499,92 @@ function StartupProfilePageInner() {
 
         {/* Form */}
         {!authLoading && !loading && !error && hasExistingProfile && (
-          <form onSubmit={handleSubmit(onSubmit)} className="space-y-8">
-            {/* Company Basics */}
-            <Card className="bg-[#1A1A1A] border-[#FFFFFF1A]">
+          <form onSubmit={handleSubmit(onSubmit)} className="space-y-8" id="startup-profile-form" autoComplete="off">
+            {/* Company Overview */}
+            <Card className="overflow-hidden border border-[#232323] bg-[#1E1E1E] text-white">
               <CardHeader>
-                <CardTitle className="flex items-center gap-2">
+                <CardTitle className="flex items-center gap-2 text-xl font-sans">
                   <Building2 className="h-5 w-5 text-primary" />
-                  <span>Company Basics</span>
+                  <span>Company Overview</span>
                 </CardTitle>
-                <CardDescription>
-                  Basic information about your company
-                </CardDescription>
+                <CardDescription className="text-[#AAAAAA]">Basic information about your company</CardDescription>
               </CardHeader>
               <CardContent className="space-y-6">
                 <div>
-                  <label className="block text-sm font-medium mb-1">
-                    Company Name <span className="text-red-500">*</span>
-                  </label>
+                  <label htmlFor="company_name" className="block text-base font-medium mb-1">Company Name <span className="text-red-500">*</span></label>
                   <Controller
                     name="company_name"
                     control={control}
                     render={({ field }) => (
                       <Input
                         {...field}
-                        className={`bg-[#222222] border-[#FFFFFF1A] ${
-                          errors.company_name ? "border-red-500" : "focus:border-primary/50"
-                        } transition-colors`}
+                        id="company_name"
+                        aria-label="Company Name"
+                        className={`bg-[#222222] border border-[#FFFFFF1A] text-white placeholder-[#AAAAAA] focus:ring-2 focus:ring-primary focus:border-primary/50 rounded-md px-4 py-3 transition-colors text-base ${errors.company_name ? "border-red-500" : ""}`}
                         placeholder="Enter your company name"
+                        autoComplete="off"
                       />
                     )}
                   />
-                  {errors.company_name && (
-                    <p className="text-red-500 text-xs mt-1">{errors.company_name.message}</p>
-                  )}
+                  {errors.company_name && <p className="text-red-500 text-xs mt-1" role="alert">{errors.company_name.message}</p>}
                 </div>
-                
-                <div className="grid md:grid-cols-2 gap-6">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div>
-                    <label className="block text-sm font-medium mb-1">
-                      Industry Sector <span className="text-red-500">*</span>
-                    </label>
+                    <label htmlFor="industry_sector" className="block text-base font-medium mb-1">Industry Sector <span className="text-red-500">*</span></label>
                     <Controller
                       name="industry_sector"
                       control={control}
                       render={({ field }) => (
                         <Select
                           {...field}
-                          className={`bg-[#222222] border-[#FFFFFF1A] ${
-                            errors.industry_sector ? "border-red-500" : "focus:border-primary/50"
-                          } transition-colors`}
+                          className={`w-full rounded-md bg-[#222222] border border-[#FFFFFF1A] text-white placeholder-[#AAAAAA] focus:ring-2 focus:ring-primary focus:border-primary/50 px-4 py-3 text-base transition-colors ${errors.industry_sector ? "border-red-500" : ""}`}
                         >
+                          <option value="">Select industry...</option>
                           {INDUSTRY_SECTORS.map(sector => (
-                            <option key={sector} value={sector}>
-                              {sector}
-                            </option>
+                            <option key={sector} value={sector}>{sector}</option>
                           ))}
                         </Select>
                       )}
                     />
-                    {errors.industry_sector && (
-                      <p className="text-red-500 text-xs mt-1">{errors.industry_sector.message}</p>
-                    )}
+                    {errors.industry_sector && <p className="text-red-500 text-xs mt-1" role="alert">{errors.industry_sector.message}</p>}
                   </div>
-                  
                   <div>
-                    <label className="block text-sm font-medium mb-1">
-                      Business Model <span className="text-red-500">*</span>
-                    </label>
+                    <label htmlFor="business_model" className="block text-base font-medium mb-1">Business Model <span className="text-red-500">*</span></label>
                     <Controller
                       name="business_model"
                       control={control}
                       render={({ field }) => (
                         <Select
                           {...field}
-                          className={`bg-[#222222] border-[#FFFFFF1A] ${
-                            errors.business_model ? "border-red-500" : "focus:border-primary/50"
-                          } transition-colors`}
+                          className={`w-full rounded-md bg-[#222222] border border-[#FFFFFF1A] text-white placeholder-[#AAAAAA] focus:ring-2 focus:ring-primary focus:border-primary/50 px-4 py-3 text-base transition-colors ${errors.business_model ? "border-red-500" : ""}`}
                         >
+                          <option value="">Select business model...</option>
                           {BUSINESS_MODELS.map(model => (
-                            <option key={model} value={model}>
-                              {model}
-                            </option>
+                            <option key={model} value={model}>{model}</option>
                           ))}
                         </Select>
                       )}
                     />
-                    {errors.business_model && (
-                      <p className="text-red-500 text-xs mt-1">{errors.business_model.message}</p>
-                    )}
+                    {errors.business_model && <p className="text-red-500 text-xs mt-1" role="alert">{errors.business_model.message}</p>}
                   </div>
                 </div>
-                
+              </CardContent>
+            </Card>
+            {/* Divider */}
+            <div className="h-px bg-[#232323] my-4" aria-hidden="true" />
+
+            {/* Market Details */}
+            <Card className="overflow-hidden border border-[#232323] bg-[#1E1E1E] text-white">
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2 text-xl font-sans">
+                  <Globe className="h-5 w-5 text-primary" />
+                  <span>Market Details</span>
+                </CardTitle>
+                <CardDescription className="text-[#AAAAAA]">Information about your target market and customers</CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-6">
                 <div>
-                  <div className="flex items-center gap-1">
-                    <label className="block text-sm font-medium mb-1">
-                      Customer Segments <span className="text-red-500">*</span>
-                    </label>
-                    <div className="relative group">
-                      <Info className="h-4 w-4 text-muted-foreground cursor-help" />
-                      <div className="absolute bottom-full left-1/2 transform -translate-x-1/2 mb-2 p-2 bg-black/80 rounded text-xs w-48 opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none">
-                        Select all customer segments that apply to your business
-                      </div>
-                    </div>
-                  </div>
+                  <label className="block text-base font-medium mb-1">Customer Segments <span className="text-red-500">*</span></label>
                   <Controller
                     name="customer_segment"
                     control={control}
@@ -591,22 +598,18 @@ function StartupProfilePageInner() {
                     )}
                   />
                 </div>
-                
-                <div className="grid md:grid-cols-3 gap-6">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div>
-                    <label className="block text-sm font-medium mb-1">
-                      Geographic Focus <span className="text-red-500">*</span>
-                    </label>
+                    <label htmlFor="geographic_focus" className="block text-base font-medium mb-1">Geographic Focus <span className="text-red-500">*</span></label>
                     <Controller
                       name="geographic_focus"
                       control={control}
                       render={({ field }) => (
                         <Select
                           {...field}
-                          className={`bg-[#222222] border-[#FFFFFF1A] ${
-                            errors.geographic_focus ? "border-red-500" : "focus:border-primary/50"
-                          } transition-colors`}
+                          className={`w-full rounded-md bg-[#222222] border border-[#FFFFFF1A] text-white placeholder-[#AAAAAA] focus:ring-2 focus:ring-primary focus:border-primary/50 px-4 py-3 text-base transition-colors ${errors.geographic_focus ? "border-red-500" : ""}`}
                         >
+                          <option value="">Select geographic focus...</option>
                           <option value="Global">Global</option>
                           <option value="North America">North America</option>
                           <option value="Europe">Europe</option>
@@ -618,10 +621,139 @@ function StartupProfilePageInner() {
                         </Select>
                       )}
                     />
-                    {errors.geographic_focus && (
-                      <p className="text-red-500 text-xs mt-1">{errors.geographic_focus.message}</p>
-                    )}
+                    {errors.geographic_focus && <p className="text-red-500 text-xs mt-1" role="alert">{errors.geographic_focus.message}</p>}
                   </div>
+                  <div>
+                    <label htmlFor="currency_type" className="block text-base font-medium mb-1">Currency Type <span className="text-red-500">*</span></label>
+                    <Controller
+                      name="currency_type"
+                      control={control}
+                      render={({ field }) => (
+                        <Select
+                          {...field}
+                          className={`w-full rounded-md bg-[#222222] border border-[#FFFFFF1A] text-white placeholder-[#AAAAAA] focus:ring-2 focus:ring-primary focus:border-primary/50 px-4 py-3 text-base transition-colors ${errors.currency_type ? "border-red-500" : ""}`}
+                        >
+                          <option value="">Select currency...</option>
+                          {CURRENCIES.map(currency => (
+                            <option key={currency} value={currency}>{currency}</option>
+                          ))}
+                        </Select>
+                      )}
+                    />
+                    {errors.currency_type && <p className="text-red-500 text-xs mt-1" role="alert">{errors.currency_type.message}</p>}
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+            {/* Divider */}
+            <div className="h-px bg-[#232323] my-4" aria-hidden="true" />
+
+            {/* Growth Context */}
+            <Card className="overflow-hidden border border-[#232323] bg-[#1E1E1E] text-white">
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2 text-xl font-sans">
+                  <TrendingUp className="h-5 w-5 text-primary" />
+                  <span>Growth Context</span>
+                </CardTitle>
+                <CardDescription className="text-[#AAAAAA]">Details about your company's growth stage and focus</CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-6">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div>
+                    <label htmlFor="stage" className="block text-base font-medium mb-1">Stage of Company <span className="text-red-500">*</span></label>
+                    <Controller
+                      name="stage"
+                      control={control}
+                      render={({ field }) => (
+                        <Select
+                          {...field}
+                          className={`w-full rounded-md bg-[#222222] border border-[#FFFFFF1A] text-white placeholder-[#AAAAAA] focus:ring-2 focus:ring-primary focus:border-primary/50 px-4 py-3 text-base transition-colors ${errors.stage ? "border-red-500" : ""}`}
+                        >
+                          <option value="">Select company stage...</option>
+                          {COMPANY_STAGES.map(stage => (
+                            <option key={stage} value={stage}>{stage}</option>
+                          ))}
+                        </Select>
+                      )}
+                    />
+                    {errors.stage && <p className="text-red-500 text-xs mt-1" role="alert">{errors.stage.message}</p>}
+                  </div>
+                  <div>
+                    <label className="block text-base font-medium mb-1">Strategic Focus <span className="text-red-500">*</span></label>
+                    <div>
+                      <Controller
+                        name="strategic_focus"
+                        control={control}
+                        render={({ field }) => (
+                          <MultiSelect
+                            options={STRATEGIC_FOCUS_OPTIONS}
+                            value={field.value}
+                            onChange={field.onChange}
+                            error={errors.strategic_focus?.message}
+                          />
+                        )}
+                      />
+                    </div>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+            {/* Divider */}
+            <div className="h-px bg-[#232323] my-4" aria-hidden="true" />
+
+            {/* Deep Company Context */}
+            <Card className="overflow-hidden border border-[#232323] bg-[#1E1E1E] text-white">
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2 text-xl font-sans">
+                  <BrainCircuit className="h-5 w-5 text-primary" />
+                  <span>Deep Company Context</span>
+                </CardTitle>
+                <CardDescription className="text-[#AAAAAA]">Help us understand your company's specific needs and challenges</CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-6">
+                <div>
+                  <div className="flex items-center gap-1">
+                    <label htmlFor="custom_prompt" className="block text-base font-medium mb-1">Custom Company Prompt <span className="text-red-500">*</span></label>
+                    <div className="relative group">
+                      <Info className="h-4 w-4 text-[#AAAAAA] cursor-help" />
+                      <div className="absolute bottom-full left-1/2 transform -translate-x-1/2 mb-2 p-2 bg-black/80 rounded text-xs w-60 opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none">
+                        This helps our AI understand your specific business needs to generate better KPIs and dashboards
+                      </div>
+                    </div>
+                  </div>
+                  <Controller
+                    name="custom_prompt"
+                    control={control}
+                    render={({ field }) => (
+                      <Textarea
+                        {...field}
+                        id="custom_prompt"
+                        aria-label="Custom Company Prompt"
+                        className={`bg-[#222222] border border-[#FFFFFF1A] min-h-[150px] text-white placeholder-[#AAAAAA] focus:ring-2 focus:ring-primary focus:border-primary/50 rounded-md px-4 py-3 text-base transition-colors ${errors.custom_prompt ? "border-red-500" : ""}`}
+                        placeholder="Describe your company's specific goals, challenges, and what metrics matter most to you. This helps our AI customize your dashboards and KPIs."
+                      />
+                    )}
+                  />
+                  {errors.custom_prompt && <p className="text-red-500 text-xs mt-1" role="alert">{errors.custom_prompt.message}</p>}
+                </div>
+              </CardContent>
+            </Card>
+            {/* Mobile floating save button */}
+            <div className="md:hidden fixed bottom-6 right-6 z-50">
+              <Button
+                type="submit"
+                className="h-14 w-14 rounded-full bg-gradient-to-r from-primary to-violet-600 hover:from-primary/90 hover:to-violet-700 shadow-lg p-0 flex items-center justify-center"
+                disabled={saving}
+                aria-label="Save changes"
+              >
+                {saving ? (
+                  <div className="h-5 w-5 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
+                ) : (
+                  <Save className="h-6 w-6" />
+                )}
+              </Button>
+            </div>
+          </form>
                   
                   <div>
                     <label className="block text-sm font-medium mb-1">
@@ -705,7 +837,7 @@ function StartupProfilePageInner() {
                 </div>
               </CardContent>
             </Card>
-            
+
             {/* Company Context */}
             <Card className="bg-[#1A1A1A] border-[#FFFFFF1A]">
               <CardHeader>
@@ -743,18 +875,18 @@ function StartupProfilePageInner() {
                       />
                     )}
                   />
-                  {errors.custom_prompt && (
+                  {errors.custom_prompt?.message && (
                     <p className="text-red-500 text-xs mt-1">{errors.custom_prompt.message}</p>
                   )}
                 </div>
               </CardContent>
             </Card>
-            
+
             {/* Save Button - Desktop: sticky at bottom, Mobile: fixed floating button */}
             <div className="sticky bottom-6 z-10 flex justify-between items-center">
               <div className="text-sm text-muted-foreground">
                 {isAutosaving && <span className="text-amber-400">Saving...</span>}
-                {lastSaved && !isAutosaving && <span>Last saved: {lastSaved.toLocaleTimeString()}</span>}
+                {lastSaved && !isAutosaving && <span>Last saved: {lastSaved?.toLocaleTimeString()}</span>}
               </div>
               <Button
                 type="submit"
@@ -790,13 +922,5 @@ function StartupProfilePageInner() {
               </Button>
             </div>
           </form>
-        )}
-      </main>
-    </div>
-  );
-}
-
-// Export the component as the default export for Next.js
-export default function StartupProfilePage() {
-  return <StartupProfilePageInner />;
-}
+        </main>
+      </div>
