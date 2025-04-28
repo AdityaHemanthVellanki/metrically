@@ -760,4 +760,7 @@ function StartupProfilePageInner() {
   );
 }
 
-export default StartupProfilePageInner;
+// Export the component as the default export for Next.js
+export default function StartupProfilePage() {
+  return <StartupProfilePageInner />;
+}
