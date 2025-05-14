@@ -172,6 +172,7 @@ function StartupProfilePageInner() {
 
   useEffect(() => {
     if (authLoading || !user || !supabase) return;
+    
     const fetchProfileData = async () => {
       setLoading(true);
       setError(null);
@@ -204,13 +205,14 @@ function StartupProfilePageInner() {
             custom_prompt: data.custom_prompt || ""
           });
         }
-      } catch (err) {
+      } catch (err: any) {
         console.error('Error fetching profile:', err);
-        setError('Failed to load profile data. Please try again.');
+        setError(err.message || 'Failed to load your profile');
       } finally {
         setLoading(false);
       }
     };
+
     fetchProfileData();
   }, [authLoading, user, supabase, reset]);
 
@@ -228,10 +230,10 @@ function StartupProfilePageInner() {
   }, [formValues, isDirty, user, hasExistingProfile, profileId]);
 
   const handleAutosave = async () => {
-    if (!user || !hasExistingProfile || !profileId || !isDirty || !supabase) return;
+    if (!isDirty || !user || !hasExistingProfile || !profileId) return;
     setIsAutosaving(true);
     try {
-      const { error } = await supabase
+      const { error } = await supabase!
         .from('startup_profiles')
         .update({
           ...formValues,
@@ -239,24 +241,23 @@ function StartupProfilePageInner() {
         })
         .eq('startup_id', profileId);
       
-      if (error) {
-        console.error('Autosave error:', error);
-      } else {
-        setLastSaved(new Date());
-      }
-    } catch (err) {
-      console.error('Autosave error:', err);
+      if (error) throw error;
+      setLastSaved(new Date());
+    } catch (err: any) {
+      console.error('Error autosaving profile:', err);
+      // Silently fail on autosave
     } finally {
       setIsAutosaving(false);
     }
   };
 
   const onSubmit = async (data: StartupProfileFormData) => {
-    if (!user) return;
+    if (!user || !supabase) return;
     setSaving(true);
+    
     try {
       if (hasExistingProfile && profileId) {
-        if (!supabase) throw new Error('Supabase client not initialized');
+        // Update existing profile
         const { error } = await supabase
           .from('startup_profiles')
           .update({
@@ -266,30 +267,26 @@ function StartupProfilePageInner() {
           .eq('startup_id', profileId);
         
         if (error) throw error;
-        
         toast.success('Profile updated successfully!');
       } else {
-        if (!supabase) throw new Error('Supabase client not initialized');
+        // Create new profile
         const { error } = await supabase
           .from('startup_profiles')
-          .insert([
-            {
-              user_id: user.id,
-              ...data,
-              created_at: new Date().toISOString(),
-              updated_at: new Date().toISOString()
-            }
-          ]);
+          .insert([{
+            user_id: user.id,
+            ...data,
+            created_at: new Date().toISOString(),
+            updated_at: new Date().toISOString()
+          }]);
         
         if (error) throw error;
-        
         toast.success('Profile created successfully!');
-        setHasExistingProfile(true);
+        router.push('/app/dashboard');
       }
       setLastSaved(new Date());
-    } catch (err) {
-      console.error('Save error:', err);
-      toast.error('Failed to save profile. Please try again.');
+    } catch (err: any) {
+      console.error('Error saving profile:', err);
+      toast.error(err.message || 'Failed to save your profile');
     } finally {
       setSaving(false);
     }
@@ -297,19 +294,17 @@ function StartupProfilePageInner() {
 
   // Retry loading profile
   const handleRetry = () => {
-    if (!user) return;
-    setLoading(true);
-    setError(null);
+    if (authLoading || !user || !supabase) return;
     
-    // Re-fetch profile
     const fetchProfileData = async () => {
+      setLoading(true);
+      setError(null);
       try {
         const { data, error } = await supabase!
           .from('startup_profiles')
           .select('*')
           .eq('user_id', user.id)
           .single();
-        
         if (error) {
           if (error.code === 'PGRST116') {
             // No profile found for this user
@@ -320,6 +315,7 @@ function StartupProfilePageInner() {
         } else if (data) {
           setHasExistingProfile(true);
           setProfileId(data.startup_id);
+          // Reset form with existing data
           reset({
             company_name: data.company_name || "",
             industry_sector: data.industry_sector || "",
@@ -332,13 +328,15 @@ function StartupProfilePageInner() {
             custom_prompt: data.custom_prompt || ""
           });
         }
-      } catch (err) {
+      } catch (err: any) {
         console.error('Error fetching profile:', err);
-        setError('Failed to load profile data. Please try again.');
+        setError(err.message || 'Failed to load your profile');
       } finally {
         setLoading(false);
       }
     };
+    
+    // Re-fetch profile
     fetchProfileData();
   };
 
@@ -370,17 +368,17 @@ function StartupProfilePageInner() {
               key={option}
               type="button"
               onClick={() => toggleOption(option)}
-              className={`text-sm px-3 py-1 rounded-full transition-all ${
+              className={`px-3 py-1.5 rounded-full text-sm font-medium transition-colors ${
                 value.includes(option)
-                  ? "bg-primary/20 text-primary border border-primary/30"
-                  : "bg-muted/30 text-muted-foreground border border-muted hover:bg-muted/40"
+                  ? "bg-primary text-white"
+                  : "bg-[#222222] text-[#AAAAAA] hover:bg-[#333333]"
               }`}
             >
               {option}
             </button>
           ))}
         </div>
-        {error && <p className="text-red-500 text-xs mt-1">{error}</p>}
+        {error && <p className="text-red-500 text-xs mt-1" role="alert">{error}</p>}
       </div>
     );
   };
@@ -388,29 +386,14 @@ function StartupProfilePageInner() {
   return (
     <div className="min-h-screen flex flex-col bg-[#121212]">
       <AppNavbar />
-      {showToaster && (
-        <ToastContainer
-          position="top-right"
-          autoClose={3000}
-          hideProgressBar={false}
-          newestOnTop
-          closeOnClick
-          rtl={false}
-          pauseOnFocusLoss
-          draggable
-          pauseOnHover
-          theme="dark"
-        />
-      )}
-      <main className="flex-1 container mx-auto px-4 pt-24 pb-24 font-sans" data-hydration="static">
-        {/* Sticky Save Button (Desktop) */}
+      <div className="flex-1 container max-w-6xl mx-auto px-4 py-8">
+        {/* Floating save button for desktop */}
         <div className="hidden md:flex fixed top-6 right-8 z-50">
           <Button
             type="submit"
             form="startup-profile-form"
-            className="px-6 py-3 rounded-lg bg-gradient-to-r from-primary to-violet-600 hover:from-primary/90 hover:to-violet-700 shadow-lg text-base font-semibold"
+            className="bg-gradient-to-r from-primary to-violet-600 hover:from-primary/90 hover:to-violet-700 text-white font-medium px-6 py-2.5 rounded-full shadow-lg flex items-center gap-2"
             disabled={saving}
-            aria-label="Save changes"
           >
             {saving ? (
               <>
@@ -419,95 +402,78 @@ function StartupProfilePageInner() {
               </>
             ) : (
               <>
-                <Save className="h-5 w-5 mr-2" />
-                Save Changes
+                <Save className="h-5 w-5" />
+                Save Profile
               </>
             )}
           </Button>
         </div>
 
-        {/* Breadcrumb */}
         <div className="flex items-center text-sm mb-6 text-[#AAAAAA]">
-          <Link href="/app" className="flex items-center hover:text-primary transition-colors">
-            <HomeIcon className="h-4 w-4 mr-1" /> Home
+          <Link href="/app/dashboard" className="flex items-center hover:text-white transition-colors">
+            <HomeIcon className="h-4 w-4 mr-1" />
+            Dashboard
           </Link>
           <ChevronRight className="h-4 w-4 mx-1" />
           <span className="text-white">Startup Profile</span>
         </div>
 
-        {/* Page Title */}
         <div className="mb-8">
-          <h1 className="text-3xl font-bold mb-2 text-white">Startup Profile</h1>
-          <p className="text-[#AAAAAA]">
-            Tell us about your startup to get tailored dashboards and KPIs.
-          </p>
+          <h1 className="text-3xl font-bold text-white">Startup Profile</h1>
+          <p className="text-[#AAAAAA] mt-2">Tell us about your startup so we can generate relevant KPIs and dashboards</p>
         </div>
 
-        
-        {/* Loading state with suppressHydrationWarning */}
-        {authLoading && (
+        {loading ? (
+        /* Loading state with suppressHydrationWarning */
           <div suppressHydrationWarning className="flex flex-col items-center justify-center py-12">
             <div className="h-12 w-12 border-4 border-primary border-t-transparent rounded-full animate-spin mb-4"></div>
-            <p className="text-muted-foreground">Loading your profile...</p>
+            <p className="text-[#AAAAAA]">Loading your profile...</p>
           </div>
-        )}
-        
-        {/* Error state */}
-        {error && !loading && (
+        ) : error ? (
+        /* Error state */
           <div className="bg-red-500/10 border border-red-500/20 rounded-lg p-6 mb-8">
             <div className="flex items-start">
-              <AlertTriangle className="h-6 w-6 text-red-500 mr-3 mt-0.5" />
+              <AlertTriangle className="h-6 w-6 text-red-500 mr-4 mt-0.5" />
               <div>
-                <h3 className="font-medium text-red-500">Failed to load profile</h3>
-                <p className="text-muted-foreground mt-1">{error}</p>
+                <h3 className="text-lg font-medium text-white mb-2">Failed to load your profile</h3>
+                <p className="text-[#AAAAAA] mb-4">{error}</p>
                 <Button 
-                  variant="outline" 
-                  className="mt-4 border-red-500/20 hover:bg-red-500/10 text-red-500"
                   onClick={handleRetry}
+                  variant="outline"
+                  className="border-red-500/20 text-red-400 hover:bg-red-500/10 hover:text-red-300"
                 >
                   Try Again
                 </Button>
               </div>
             </div>
           </div>
-        )}
-        
-        {/* Fallback for new users with no profile */}
-        {!authLoading && !loading && !error && !hasExistingProfile && (
-          <div className="flex flex-col items-center justify-center py-12">
-            <Card className="bg-[#1A1A1A] border-[#FFFFFF1A] max-w-lg w-full">
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2">
-                  <BrainCircuit className="h-5 w-5 text-primary" />
-                  <span>Welcome to Metrically!</span>
-                </CardTitle>
-                <CardDescription>
-                  Get started by telling us about your startup. This helps us generate personalized KPIs and dashboards for you.
-                </CardDescription>
-              </CardHeader>
-              <CardContent>
-                <Button
-                  className="w-full bg-gradient-to-r from-primary to-violet-600 hover:from-primary/90 hover:to-violet-700 shadow-lg"
-                  onClick={() => setHasExistingProfile(true)}
-                >
-                  Start Profile Setup
-                </Button>
-              </CardContent>
-            </Card>
-          </div>
-        )}
+        ) : (
+        /* Form */
+          <>
+            <div className="flex flex-col items-center justify-center py-12">
+              {showToaster && <ToastContainer
+                position="top-right"
+                autoClose={5000}
+                hideProgressBar={false}
+                newestOnTop
+                closeOnClick
+                rtl={false}
+                pauseOnFocusLoss
+                draggable
+                pauseOnHover
+                theme="dark"
+              />}
+            </div>
 
-        {/* Form */}
-        {!authLoading && !loading && !error && hasExistingProfile && (
-          <form onSubmit={handleSubmit(onSubmit)} className="space-y-8" id="startup-profile-form" autoComplete="off">
-            {/* Company Overview */}
+            <form id="startup-profile-form" onSubmit={handleSubmit(onSubmit)} className="space-y-8">
+            {/* Company Basics */}
             <Card className="overflow-hidden border border-[#232323] bg-[#1E1E1E] text-white">
               <CardHeader>
                 <CardTitle className="flex items-center gap-2 text-xl font-sans">
                   <Building2 className="h-5 w-5 text-primary" />
-                  <span>Company Overview</span>
+                  <span>Company Basics</span>
                 </CardTitle>
-                <CardDescription className="text-[#AAAAAA]">Basic information about your company</CardDescription>
+                <CardDescription className="text-[#AAAAAA]">Tell us about your company's core information</CardDescription>
               </CardHeader>
               <CardContent className="space-y-6">
                 <div>
@@ -520,9 +486,8 @@ function StartupProfilePageInner() {
                         {...field}
                         id="company_name"
                         aria-label="Company Name"
-                        className={`bg-[#222222] border border-[#FFFFFF1A] text-white placeholder-[#AAAAAA] focus:ring-2 focus:ring-primary focus:border-primary/50 rounded-md px-4 py-3 transition-colors text-base ${errors.company_name ? "border-red-500" : ""}`}
+                        className={`bg-[#222222] border border-[#FFFFFF1A] text-white placeholder-[#AAAAAA] focus:ring-2 focus:ring-primary focus:border-primary/50 rounded-md px-4 py-3 text-base transition-colors ${errors.company_name ? "border-red-500" : ""}`}
                         placeholder="Enter your company name"
-                        autoComplete="off"
                       />
                     )}
                   />
@@ -540,8 +505,8 @@ function StartupProfilePageInner() {
                           className={`w-full rounded-md bg-[#222222] border border-[#FFFFFF1A] text-white placeholder-[#AAAAAA] focus:ring-2 focus:ring-primary focus:border-primary/50 px-4 py-3 text-base transition-colors ${errors.industry_sector ? "border-red-500" : ""}`}
                         >
                           <option value="">Select industry...</option>
-                          {INDUSTRY_SECTORS.map(sector => (
-                            <option key={sector} value={sector}>{sector}</option>
+                          {INDUSTRY_SECTORS.map(industry => (
+                            <option key={industry} value={industry}>{industry}</option>
                           ))}
                         </Select>
                       )}
@@ -573,12 +538,12 @@ function StartupProfilePageInner() {
             {/* Divider */}
             <div className="h-px bg-[#232323] my-4" aria-hidden="true" />
 
-            {/* Market Details */}
+            {/* Market Context */}
             <Card className="overflow-hidden border border-[#232323] bg-[#1E1E1E] text-white">
               <CardHeader>
                 <CardTitle className="flex items-center gap-2 text-xl font-sans">
                   <Globe className="h-5 w-5 text-primary" />
-                  <span>Market Details</span>
+                  <span>Market Context</span>
                 </CardTitle>
                 <CardDescription className="text-[#AAAAAA]">Information about your target market and customers</CardDescription>
               </CardHeader>
@@ -609,7 +574,7 @@ function StartupProfilePageInner() {
                           {...field}
                           className={`w-full rounded-md bg-[#222222] border border-[#FFFFFF1A] text-white placeholder-[#AAAAAA] focus:ring-2 focus:ring-primary focus:border-primary/50 px-4 py-3 text-base transition-colors ${errors.geographic_focus ? "border-red-500" : ""}`}
                         >
-                          <option value="">Select geographic focus...</option>
+                          <option value="">Select region...</option>
                           <option value="Global">Global</option>
                           <option value="North America">North America</option>
                           <option value="Europe">Europe</option>
@@ -754,13 +719,12 @@ function StartupProfilePageInner() {
               </Button>
             </div>
           </form>
-        </main>
+          </>
+        )}
       </div>
     </div>
   );
 }
 
 // Export the component as the default export for Next.js
-export default function StartupProfilePage() {
-  return <StartupProfilePageInner />;
-}
+export default StartupProfilePageInner;

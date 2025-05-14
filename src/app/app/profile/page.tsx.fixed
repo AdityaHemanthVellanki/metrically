@@ -1,0 +1,9 @@
+          </form>
+        </main>
+      </div>
+    </div>
+  );
+}
+
+// Export the component as the default export for Next.js
+export default StartupProfilePageInner;
