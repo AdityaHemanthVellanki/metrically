@@ -13,7 +13,7 @@ import "react-toastify/dist/ReactToastify.css";
 import { AppNavbar } from "@/components/app-navbar";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Select } from "@/components/ui/select";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import { useAuth } from "@/components/AuthProvider";
 import { supabase } from "@/lib/supabase";
@@ -133,6 +133,21 @@ const STRATEGIC_FOCUS_OPTIONS = [
   "Team Building"
 ];
 
+// Create a client-only wrapper component to prevent hydration errors
+const ClientOnly = ({ children }: { children: React.ReactNode }) => {
+  const [hasMounted, setHasMounted] = useState(false);
+  
+  useEffect(() => {
+    setHasMounted(true);
+  }, []);
+  
+  if (!hasMounted) {
+    return null;
+  }
+  
+  return <>{children}</>;
+};
+
 function StartupProfilePageInner() {
   // Fix: showToaster state for ToastContainer
   const [showToaster, setShowToaster] = useState(false);
@@ -146,6 +161,13 @@ function StartupProfilePageInner() {
   const [hasExistingProfile, setHasExistingProfile] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [lastSaved, setLastSaved] = useState<Date | null>(null);
+  
+  // Client-side only state to prevent hydration issues
+  const [isClient, setIsClient] = useState(false);
+  
+  useEffect(() => {
+    setIsClient(true);
+  }, []);
 
   const {
     control,
@@ -418,10 +440,21 @@ function StartupProfilePageInner() {
     );
   };
 
+  // Use useEffect to ensure client-side only rendering for problematic sections
+  useEffect(() => {
+    // This ensures the component is fully mounted on the client before rendering
+    // which helps prevent hydration errors
+    const timer = setTimeout(() => {
+      setLoading(false);
+    }, 100);
+    return () => clearTimeout(timer);
+  }, []);
+
   return (
     <div className="min-h-screen flex flex-col bg-[#121212]">
       <AppNavbar />
-      <div className="flex-1 container max-w-6xl mx-auto px-4 py-8">
+      {isClient ? (
+        <div className="flex-1 container max-w-6xl mx-auto px-4 py-8">
         {/* Floating save button for desktop */}
         <div className="hidden md:flex fixed top-6 right-8 z-50">
           <Button
@@ -546,15 +579,18 @@ function StartupProfilePageInner() {
                       name="industry_sector"
                       control={control}
                       render={({ field }) => (
-                        <Select
-                          {...field}
-                          className={`w-full rounded-md bg-[#222222] border border-[#FFFFFF1A] text-white placeholder-[#AAAAAA] focus:ring-2 focus:ring-primary focus:border-primary/50 px-4 py-3 text-base transition-colors ${errors.industry_sector ? "border-red-500" : ""}`}
-                        >
-                          <option value="">Select industry...</option>
-                          {INDUSTRY_SECTORS.map(industry => (
-                            <option key={industry} value={industry}>{industry}</option>
-                          ))}
-                        </Select>
+                        <div className={`w-full ${errors.industry_sector ? "border-red-500" : ""}`}>
+                          <Select className="w-full" onValueChange={field.onChange} value={field.value}>
+                            <SelectTrigger className="w-full bg-[#222222] border border-[#FFFFFF1A] text-white placeholder-[#AAAAAA] focus:ring-2 focus:ring-primary focus:border-primary/50 px-4 py-3 text-base transition-colors">
+                              <SelectValue placeholder="Select industry..." />
+                            </SelectTrigger>
+                            <SelectContent className="bg-[#222222] text-white border border-[#333333]">
+                              {INDUSTRY_SECTORS.map(industry => (
+                                <SelectItem key={industry} value={industry}>{industry}</SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                        </div>
                       )}
                     />
                     {errors.industry_sector && <p className="text-red-500 text-xs mt-1" role="alert">{errors.industry_sector.message}</p>}
@@ -565,15 +601,18 @@ function StartupProfilePageInner() {
                       name="business_model"
                       control={control}
                       render={({ field }) => (
-                        <Select
-                          {...field}
-                          className={`w-full rounded-md bg-[#222222] border border-[#FFFFFF1A] text-white placeholder-[#AAAAAA] focus:ring-2 focus:ring-primary focus:border-primary/50 px-4 py-3 text-base transition-colors ${errors.business_model ? "border-red-500" : ""}`}
-                        >
-                          <option value="">Select business model...</option>
-                          {BUSINESS_MODELS.map(model => (
-                            <option key={model} value={model}>{model}</option>
-                          ))}
-                        </Select>
+                        <div className={`w-full ${errors.business_model ? "border-red-500" : ""}`}>
+                          <Select className="w-full" onValueChange={field.onChange} value={field.value}>
+                            <SelectTrigger className="w-full bg-[#222222] border border-[#FFFFFF1A] text-white placeholder-[#AAAAAA] focus:ring-2 focus:ring-primary focus:border-primary/50 px-4 py-3 text-base transition-colors">
+                              <SelectValue placeholder="Select business model..." />
+                            </SelectTrigger>
+                            <SelectContent className="bg-[#222222] text-white border border-[#333333]">
+                              {BUSINESS_MODELS.map(model => (
+                                <SelectItem key={model} value={model}>{model}</SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                        </div>
                       )}
                     />
                     {errors.business_model && <p className="text-red-500 text-xs mt-1" role="alert">{errors.business_model.message}</p>}
@@ -616,20 +655,23 @@ function StartupProfilePageInner() {
                       name="geographic_focus"
                       control={control}
                       render={({ field }) => (
-                        <Select
-                          {...field}
-                          className={`w-full rounded-md bg-[#222222] border border-[#FFFFFF1A] text-white placeholder-[#AAAAAA] focus:ring-2 focus:ring-primary focus:border-primary/50 px-4 py-3 text-base transition-colors ${errors.geographic_focus ? "border-red-500" : ""}`}
-                        >
-                          <option value="">Select region...</option>
-                          <option value="Global">Global</option>
-                          <option value="North America">North America</option>
-                          <option value="Europe">Europe</option>
-                          <option value="Asia">Asia</option>
-                          <option value="Latin America">Latin America</option>
-                          <option value="Africa">Africa</option>
-                          <option value="Middle East">Middle East</option>
-                          <option value="Oceania">Oceania</option>
-                        </Select>
+                        <div className={`w-full ${errors.geographic_focus ? "border-red-500" : ""}`}>
+                          <Select className="w-full" onValueChange={field.onChange} value={field.value}>
+                            <SelectTrigger className="w-full bg-[#222222] border border-[#FFFFFF1A] text-white placeholder-[#AAAAAA] focus:ring-2 focus:ring-primary focus:border-primary/50 px-4 py-3 text-base transition-colors">
+                              <SelectValue placeholder="Select region..." />
+                            </SelectTrigger>
+                            <SelectContent className="bg-[#222222] text-white border border-[#333333]">
+                              <SelectItem value="Global">Global</SelectItem>
+                              <SelectItem value="North America">North America</SelectItem>
+                              <SelectItem value="Europe">Europe</SelectItem>
+                              <SelectItem value="Asia">Asia</SelectItem>
+                              <SelectItem value="Latin America">Latin America</SelectItem>
+                              <SelectItem value="Africa">Africa</SelectItem>
+                              <SelectItem value="Middle East">Middle East</SelectItem>
+                              <SelectItem value="Oceania">Oceania</SelectItem>
+                            </SelectContent>
+                          </Select>
+                        </div>
                       )}
                     />
                     {errors.geographic_focus && <p className="text-red-500 text-xs mt-1" role="alert">{errors.geographic_focus.message}</p>}
@@ -640,15 +682,18 @@ function StartupProfilePageInner() {
                       name="currency_type"
                       control={control}
                       render={({ field }) => (
-                        <Select
-                          {...field}
-                          className={`w-full rounded-md bg-[#222222] border border-[#FFFFFF1A] text-white placeholder-[#AAAAAA] focus:ring-2 focus:ring-primary focus:border-primary/50 px-4 py-3 text-base transition-colors ${errors.currency_type ? "border-red-500" : ""}`}
-                        >
-                          <option value="">Select currency...</option>
-                          {CURRENCIES.map(currency => (
-                            <option key={currency} value={currency}>{currency}</option>
-                          ))}
-                        </Select>
+                        <div className={`w-full ${errors.currency_type ? "border-red-500" : ""}`}>
+                          <Select className="w-full" onValueChange={field.onChange} value={field.value}>
+                            <SelectTrigger className="w-full bg-[#222222] border border-[#FFFFFF1A] text-white placeholder-[#AAAAAA] focus:ring-2 focus:ring-primary focus:border-primary/50 px-4 py-3 text-base transition-colors">
+                              <SelectValue placeholder="Select currency..." />
+                            </SelectTrigger>
+                            <SelectContent className="bg-[#222222] text-white border border-[#333333]">
+                              {CURRENCIES.map(currency => (
+                                <SelectItem key={currency} value={currency}>{currency}</SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                        </div>
                       )}
                     />
                     {errors.currency_type && <p className="text-red-500 text-xs mt-1" role="alert">{errors.currency_type.message}</p>}
@@ -676,15 +721,18 @@ function StartupProfilePageInner() {
                       name="stage"
                       control={control}
                       render={({ field }) => (
-                        <Select
-                          {...field}
-                          className={`w-full rounded-md bg-[#222222] border border-[#FFFFFF1A] text-white placeholder-[#AAAAAA] focus:ring-2 focus:ring-primary focus:border-primary/50 px-4 py-3 text-base transition-colors ${errors.stage ? "border-red-500" : ""}`}
-                        >
-                          <option value="">Select company stage...</option>
-                          {COMPANY_STAGES.map(stage => (
-                            <option key={stage} value={stage}>{stage}</option>
-                          ))}
-                        </Select>
+                        <div className={`w-full ${errors.stage ? "border-red-500" : ""}`}>
+                          <Select className="w-full" onValueChange={field.onChange} value={field.value}>
+                            <SelectTrigger className="w-full bg-[#222222] border border-[#FFFFFF1A] text-white placeholder-[#AAAAAA] focus:ring-2 focus:ring-primary focus:border-primary/50 px-4 py-3 text-base transition-colors">
+                              <SelectValue placeholder="Select company stage..." />
+                            </SelectTrigger>
+                            <SelectContent className="bg-[#222222] text-white border border-[#333333]">
+                              {COMPANY_STAGES.map(stage => (
+                                <SelectItem key={stage} value={stage}>{stage}</SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                        </div>
                       )}
                     />
                     {errors.stage && <p className="text-red-500 text-xs mt-1" role="alert">{errors.stage.message}</p>}
@@ -766,6 +814,7 @@ function StartupProfilePageInner() {
             </div>
           </form>
         </div>
+      ) : null}
     </div>
   );
 }
