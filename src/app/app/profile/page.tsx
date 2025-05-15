@@ -170,26 +170,59 @@ function StartupProfilePageInner() {
 
   const formValues = watch();
 
+  // Set a timeout to prevent getting stuck in loading state
   useEffect(() => {
-    if (authLoading || !user || !supabase) return;
+    if (loading) {
+      const loadingTimeout = setTimeout(() => {
+        console.log('Loading timeout reached, forcing profile display');
+        setLoading(false);
+        setError('Loading took too long. You can still create or edit your profile.');
+      }, 5000); // 5 second maximum loading time
+      
+      return () => clearTimeout(loadingTimeout);
+    }
+  }, [loading]);
+
+  // Fetch profile data when user is authenticated
+  useEffect(() => {
+    if (authLoading) return; // Still checking auth status
+    
+    if (!user || !supabase) {
+      // Not logged in or no database connection, don't leave user stuck in loading
+      setLoading(false);
+      if (!user) {
+        // User not logged in
+        return;
+      }
+      if (!supabase) {
+        setError('Database connection unavailable. Try again later.');
+        return;
+      }
+    }
     
     const fetchProfileData = async () => {
       setLoading(true);
       setError(null);
       try {
+        console.log('Fetching profile for user:', user.id);
         const { data, error } = await supabase!
           .from('startup_profiles')
           .select('*')
           .eq('user_id', user.id)
           .single();
+          
         if (error) {
           if (error.code === 'PGRST116') {
-            // No profile found for this user
+            // No profile found for this user - this is expected for new users
+            console.log('No existing profile found');
             setHasExistingProfile(false);
           } else {
-            throw error;
+            // Log error but don't block the form
+            console.error('Database error:', error);
+            setError(`Unable to fetch existing profile: ${error.message}. You can still create a new profile.`);
           }
         } else if (data) {
+          console.log('Found existing profile:', data.startup_id);
           setHasExistingProfile(true);
           setProfileId(data.startup_id);
           // Reset form with existing data
@@ -207,8 +240,10 @@ function StartupProfilePageInner() {
         }
       } catch (err: any) {
         console.error('Error fetching profile:', err);
-        setError(err.message || 'Failed to load your profile');
+        // Show error but don't block form access
+        setError(`Error loading profile: ${err.message || 'Unknown error'}. You can still use the form.`);
       } finally {
+        // Always ensure loading state is cleared
         setLoading(false);
       }
     };
@@ -423,34 +458,45 @@ function StartupProfilePageInner() {
           <p className="text-[#AAAAAA] mt-2">Tell us about your startup so we can generate relevant KPIs and dashboards</p>
         </div>
 
-        {loading ? (
-        /* Loading state with suppressHydrationWarning */
-          <div suppressHydrationWarning className="flex flex-col items-center justify-center py-12">
+        {/* Loading indicator - shows at the top but doesn't block the form */}
+        {loading && (
+          <div suppressHydrationWarning className="flex flex-col items-center justify-center py-6 mb-6">
             <div className="h-12 w-12 border-4 border-primary border-t-transparent rounded-full animate-spin mb-4"></div>
             <p className="text-[#AAAAAA]">Loading your profile...</p>
           </div>
-        ) : error ? (
-        /* Error state */
-          <div className="bg-red-500/10 border border-red-500/20 rounded-lg p-6 mb-8">
+        )}
+        
+        {/* Error message - dismissible notification */}
+        {error && (
+          <div className="bg-red-500/10 border border-[#333333] rounded-lg p-4 mb-8">
             <div className="flex items-start">
               <AlertTriangle className="h-6 w-6 text-red-500 mr-4 mt-0.5" />
-              <div>
-                <h3 className="text-lg font-medium text-white mb-2">Failed to load your profile</h3>
-                <p className="text-[#AAAAAA] mb-4">{error}</p>
+              <div className="flex-1">
+                <div className="flex justify-between items-center">
+                  <h3 className="text-lg font-medium text-white">Note</h3>
+                  <button 
+                    onClick={() => setError(null)} 
+                    className="text-[#AAAAAA] hover:text-white"
+                    aria-label="Dismiss"
+                  >
+                    &times;
+                  </button>
+                </div>
+                <p className="text-[#AAAAAA] mb-3">{error}</p>
                 <Button 
                   onClick={handleRetry}
                   variant="outline"
-                  className="border-red-500/20 text-red-400 hover:bg-red-500/10 hover:text-red-300"
+                  size="sm"
+                  className="border-primary/30 text-primary hover:bg-primary/10 hover:border-primary/50"
                 >
                   Try Again
                 </Button>
               </div>
             </div>
           </div>
-        ) : (
-        /* Form */
-          <>
-            <div className="flex flex-col items-center justify-center py-12">
+        )}
+        {/* Form - Always visible */}
+        <div className="flex flex-col items-center justify-center py-12">
               {showToaster && <ToastContainer
                 position="top-right"
                 autoClose={5000}
@@ -719,9 +765,7 @@ function StartupProfilePageInner() {
               </Button>
             </div>
           </form>
-          </>
-        )}
-      </div>
+        </div>
     </div>
   );
 }
