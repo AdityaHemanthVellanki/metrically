@@ -17,6 +17,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Textarea } from "@/components/ui/textarea";
 import { useAuth } from "@/components/AuthProvider";
 import { supabase } from "@/lib/supabase";
+import azureAIService, { CompanyInfo } from "@/lib/azure-ai";
 import {
   Card,
   CardContent,
@@ -308,6 +309,77 @@ function StartupProfilePageInner() {
     }
   };
 
+  const generateKPIs = async (profileData: StartupProfileFormData) => {
+    try {
+      // Prepare company info for KPI generation
+      const companyInfo: CompanyInfo = {
+        product_type: profileData.industry_sector,
+        company_stage: profileData.stage,
+        tech_stack: "PostgreSQL", // Default to PostgreSQL for now
+        industry: profileData.industry_sector,
+        business_model: profileData.business_model,
+        strategic_focus: profileData.strategic_focus,
+        custom_prompt: profileData.custom_prompt
+      };
+      
+      // Check if Azure OpenAI service is available
+      const status = await azureAIService.checkStatus();
+      
+      if (!status.available) {
+        console.warn('Azure OpenAI service is not available. Skipping KPI generation.');
+        return;
+      }
+      
+      // Generate KPIs using Azure OpenAI
+      toast.info('Generating KPIs based on your profile...', { autoClose: false, toastId: 'generating-kpis' });
+      
+      const response = await azureAIService.generateKPISystem(companyInfo);
+      
+      if (response.success && response.content) {
+        // Save generated KPIs to the database
+        const { error } = await supabase!
+          .from('generated_kpis')
+          .insert([{
+            user_id: user!.id,
+            startup_id: profileId,
+            metrics: response.content.metrics,
+            dashboard_recommendations: response.content.dashboard_recommendations,
+            summary: response.content.summary,
+            created_at: new Date().toISOString()
+          }]);
+          
+        if (error) {
+          console.error('Error saving generated KPIs:', error);
+          toast.update('generating-kpis', { 
+            render: 'KPIs generated but not saved. Please try again later.',
+            type: 'warning',
+            autoClose: 5000
+          });
+        } else {
+          toast.update('generating-kpis', { 
+            render: 'KPIs generated successfully! View them in your dashboard.',
+            type: 'success',
+            autoClose: 5000
+          });
+        }
+      } else {
+        console.error('Failed to generate KPIs:', response.error);
+        toast.update('generating-kpis', { 
+          render: 'Failed to generate KPIs. Please try again later.',
+          type: 'error',
+          autoClose: 5000
+        });
+      }
+    } catch (err: any) {
+      console.error('Error in KPI generation process:', err);
+      toast.update('generating-kpis', { 
+        render: 'An error occurred during KPI generation.',
+        type: 'error',
+        autoClose: 5000
+      });
+    }
+  };
+
   const onSubmit = async (data: StartupProfileFormData) => {
     if (!user || !supabase) return;
     setSaving(true);
@@ -325,20 +397,38 @@ function StartupProfilePageInner() {
         
         if (error) throw error;
         toast.success('Profile updated successfully!');
+        
+        // Generate KPIs after profile update
+        await generateKPIs(data);
       } else {
         // Create new profile
-        const { error } = await supabase
+        const { data: newProfile, error } = await supabase
           .from('startup_profiles')
           .insert([{
             user_id: user.id,
             ...data,
             created_at: new Date().toISOString(),
             updated_at: new Date().toISOString()
-          }]);
+          }])
+          .select('startup_id')
+          .single();
         
         if (error) throw error;
+        
+        // Set profile ID for KPI generation
+        if (newProfile) {
+          setProfileId(newProfile.startup_id);
+        }
+        
         toast.success('Profile created successfully!');
-        router.push('/app/dashboard');
+        
+        // Generate KPIs after profile creation
+        await generateKPIs(data);
+        
+        // Navigate to dashboard after a short delay to allow KPI generation to start
+        setTimeout(() => {
+          router.push('/app/dashboard');
+        }, 1500);
       }
       setLastSaved(new Date());
     } catch (err: any) {

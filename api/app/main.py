@@ -1,8 +1,8 @@
 from fastapi import FastAPI, HTTPException, Depends
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
-from .routers import kpi, auth
-from .services.azure_openai import verify_api_key
+from .routers import kpi, auth, ai
+from .services.enhanced_azure_openai import get_azure_openai_service
 import os
 from dotenv import load_dotenv
 
@@ -32,12 +32,17 @@ async def health_check():
 @app.get("/api-status")
 async def api_status():
     """Check if Azure OpenAI API is configured"""
-    is_configured = verify_api_key()
-    return {"azure_openai_configured": is_configured}
+    service = get_azure_openai_service()
+    is_available = service.is_available()
+    return {
+        "azure_openai_configured": is_available,
+        "deployment": service.deployment_name if is_available else None
+    }
 
 # Include routers
 app.include_router(auth.router, prefix="/auth", tags=["Authentication"])
 app.include_router(kpi.router, prefix="/kpi", tags=["KPI Generation"])
+app.include_router(ai.router, prefix="/ai", tags=["AI Services"])
 
 @app.exception_handler(Exception)
 async def global_exception_handler(request, exc):
