@@ -150,9 +150,11 @@ const ClientOnly = ({ children }: { children: React.ReactNode }) => {
 };
 
 function StartupProfilePageInner() {
-  // Fix: showToaster state for ToastContainer
+  // Client-side only state to prevent hydration issues
+  const [isClient, setIsClient] = useState(false);
+  
+  // Initialize all state that depends on client-side APIs
   const [showToaster, setShowToaster] = useState(false);
-  useEffect(() => { setShowToaster(true); }, []);
   const { user, loading: authLoading } = useAuth();
   const router = useRouter();
   const [profileId, setProfileId] = useState<string | null>(null);
@@ -163,11 +165,10 @@ function StartupProfilePageInner() {
   const [error, setError] = useState<string | null>(null);
   const [lastSaved, setLastSaved] = useState<Date | null>(null);
   
-  // Client-side only state to prevent hydration issues
-  const [isClient, setIsClient] = useState(false);
-  
+  // Set client flag and initialize client-side only code
   useEffect(() => {
     setIsClient(true);
+    setShowToaster(true);
   }, []);
 
   const {
@@ -530,21 +531,27 @@ function StartupProfilePageInner() {
     );
   };
 
-  // Use useEffect to ensure client-side only rendering for problematic sections
+  // Set loading to false once component mounts on client
   useEffect(() => {
-    // This ensures the component is fully mounted on the client before rendering
-    // which helps prevent hydration errors
-    const timer = setTimeout(() => {
-      setLoading(false);
-    }, 100);
-    return () => clearTimeout(timer);
+    setLoading(false);
   }, []);
+
+ // Don't render anything until we're on the client to prevent hydration issues
+  if (!isClient) {
+    return (
+      <div className="min-h-screen flex flex-col bg-[#121212]">
+        <AppNavbar />
+        <div className="flex-1 flex items-center justify-center">
+          <div className="animate-pulse">Loading...</div>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen flex flex-col bg-[#121212]">
       <AppNavbar />
-      {isClient ? (
-        <div className="flex-1 container max-w-6xl mx-auto px-4 py-8">
+      <main className="flex-1 container max-w-6xl mx-auto px-4 py-8">
         {/* Floating save button for desktop */}
         <div className="hidden md:flex fixed top-6 right-8 z-50">
           <Button
@@ -903,8 +910,7 @@ function StartupProfilePageInner() {
               </Button>
             </div>
           </form>
-        </div>
-      ) : null}
+      </main>
     </div>
   );
 }

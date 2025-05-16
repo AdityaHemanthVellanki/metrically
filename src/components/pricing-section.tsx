@@ -2,10 +2,21 @@
 
 import { Button } from "@/components/ui/button"
 import { CheckIcon } from "lucide-react"
+import { useEffect, useState } from "react"
 
 export function PricingSection() {
+  const [isClient, setIsClient] = useState(false)
+
+  useEffect(() => {
+    setIsClient(true)
+  }, [])
+  // Don't render anything during SSR or initial render
+  if (!isClient) {
+    return <div className="h-[800px] w-full" /> // Reserve space
+  }
+
   return (
-    <section id="pricing" className="py-20 bg-muted/30">
+    <section id="pricing" className="py-20 bg-muted/30" suppressHydrationWarning>
       <div className="container mx-auto px-4">
         <div className="text-center mb-16">
           <h2 className="text-3xl md:text-4xl font-bold mb-4">Start for free. Scale when ready.</h2>
